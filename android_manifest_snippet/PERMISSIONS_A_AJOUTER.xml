@@ -1,0 +1,24 @@
+<!--
+  Ce fichier n'est PAS un AndroidManifest.xml complet : c'est un aide-mémoire
+  des lignes à ajouter dans android/app/src/main/AndroidManifest.xml après
+  avoir lancé `flutter create .` (voir README.md, étape 2).
+
+  1) Ajoute ces lignes DANS la balise <manifest>, avant <application> :
+-->
+
+<uses-permission android:name="android.permission.RECEIVE_SMS" />
+<uses-permission android:name="android.permission.READ_SMS" />
+<uses-permission android:name="android.permission.INTERNET" />
+
+<!--
+  2) android:minSdkVersion : dans android/app/build.gradle (ou build.gradle.kts),
+     vérifie que minSdkVersion / minSdk est au moins 21 (23 recommandé pour
+     une gestion propre des permissions runtime).
+
+  3) Ces permissions sont classées "dangereuses" par Android : en plus de les
+     déclarer ici, l'app doit les demander explicitement à l'exécution (déjà
+     fait dans lib/parsing/sms_listener.dart via SmsListenerService.demanderPermissions()).
+     Google Play impose une politique stricte sur RECEIVE_SMS/READ_SMS : si tu
+     publies sur le Play Store, prévois de documenter précisément l'usage
+     (formulaire de déclaration "Permissions Declaration Form").
+-->

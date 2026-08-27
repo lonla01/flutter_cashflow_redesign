@@ -1,0 +1,44 @@
+name: mobile_money_tracker
+description: Suivi automatique des transactions Orange Money / MTN Mobile Money via analyse des SMS.
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # Base de données locale SQLite (pas de génération de code requise, contrairement à Drift,
+  # ce qui la rend plus sûre à écrire "à la main" sans pouvoir compiler/tester ici)
+  sqflite: ^2.3.3+1
+  path: ^1.9.0
+  path_provider: ^2.1.4
+
+  # Utilitaires
+  intl: ^0.19.0
+  uuid: ^4.4.2
+
+  # Graphiques pour le dashboard
+  fl_chart: ^0.68.0
+
+  # Export
+  csv: ^6.0.0
+  pdf: ^3.11.1
+  printing: ^5.13.2
+  share_plus: ^10.0.2
+
+  # Lecture des SMS Android (scaffold — à tester sur un vrai appareil)
+  telephony: ^0.2.0
+  permission_handler: ^11.3.1
+  sqflite_common_ffi_web: ^1.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
