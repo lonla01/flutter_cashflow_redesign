@@ -31,9 +31,10 @@ dependencies:
   share_plus: ^10.0.2
 
   # Lecture des SMS Android (scaffold — à tester sur un vrai appareil)
-  telephony: ^0.2.0
+  # Fork maintenu de `telephony` (abandonné, incompatible AGP 8+ : pas de namespace)
+  another_telephony: ^0.4.1
   permission_handler: ^11.3.1
-  sqflite_common_ffi_web: ^1.1.2
+  sqflite_common_ffi_web: ^1.0.0
 
 dev_dependencies:
   flutter_test:
