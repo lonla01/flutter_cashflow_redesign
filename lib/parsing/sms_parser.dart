@@ -14,14 +14,9 @@ class _Champs {
 
   _Champs({
     required this.montant,
-    this.frais = 0,
-    this.montantNet,
-    this.solde,
-    this.contactNom,
-    this.contactNumero,
     required this.idTransaction,
     required this.date,
-  });
+  }) : frais = 0 : montantNet = null : solde = null : contactNom = null : contactNumero = null;
 }
 
 double _num(String s) => double.parse(s.replaceAll(',', '.').trim());

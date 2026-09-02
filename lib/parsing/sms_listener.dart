@@ -52,8 +52,7 @@ class SmsListenerService {
     // On ne filtre pas strictement sur l'adresse ici : le moteur de parsing
     // rejette déjà tout message qui ne correspond à aucun format connu, ce
     // qui protège contre les faux positifs même sans filtrage d'expéditeur.
-    final tx = 
-    (corps);
+    final tx = parseSms(corps);
     if (tx == null) return;
     tx.categorie = await categorization.suggestCategory(tx);
     await db.insertTransactionIfNew(tx);

@@ -87,7 +87,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
           const SizedBox(height: 16),
 
           DropdownButtonFormField<String>(
-            value: _categorie,
+            initialValue: _categorie,
             decoration: const InputDecoration(
               labelText: 'Catégorie',
               border: OutlineInputBorder(),
