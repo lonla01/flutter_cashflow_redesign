@@ -1,6 +1,7 @@
 # Miscellaneous
 *.class
 *.log
+# Logs
 *.pyc
 *.swp
 .DS_Store
@@ -27,6 +28,7 @@ migrate_working_dir/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
@@ -46,3 +48,34 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Android
+.gradle/
+android/.gradle/
+android/local.properties
+android/key.properties
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/ephemeral/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# VS Code project settings
+*.code-workspace
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Generated files
+*.iml
