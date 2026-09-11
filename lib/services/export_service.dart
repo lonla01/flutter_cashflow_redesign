@@ -55,7 +55,7 @@ class ExportService {
           ),
           pw.SizedBox(height: 12),
           pw.Header(level: 1, text: 'Par catégorie'),
-          pw.Table.fromTextArray(
+          pw.TableHelper.fromTextArray(
             headers: ['Catégorie', 'Montant (FCFA)'],
             data: parCategorie
                 .map((c) => [c.categorie, _montantFmt.format(c.total)])
@@ -63,7 +63,7 @@ class ExportService {
           ),
           pw.SizedBox(height: 12),
           pw.Header(level: 1, text: 'Top 10 des contacts/destinataires'),
-          pw.Table.fromTextArray(
+          pw.TableHelper.fromTextArray(
             headers: ['Contact', 'Montant (FCFA)'],
             data: parContact
                 .map((c) => [c.contact, _montantFmt.format(c.total)])
@@ -71,7 +71,7 @@ class ExportService {
           ),
           pw.SizedBox(height: 12),
           pw.Header(level: 1, text: 'Détail des transactions'),
-          pw.Table.fromTextArray(
+          pw.TableHelper.fromTextArray(
             headers: ['Date', 'Contact', 'Catégorie', 'Montant'],
             data: transactions
                 .map((t) => [
