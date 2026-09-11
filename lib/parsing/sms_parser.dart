@@ -1,24 +1,5 @@
 import '../models/transaction.dart';
 
-/// Résultat interne neutre avant transformation en [MoneyTransaction],
-/// pour garder le parsing testable indépendamment du modèle final.
-class _Champs {
-  final double montant;
-  final double frais;
-  final double? montantNet;
-  final double? solde;
-  final String? contactNom;
-  final String? contactNumero;
-  final String idTransaction;
-  final DateTime date;
-
-  _Champs({
-    required this.montant,
-    required this.idTransaction,
-    required this.date,
-  }) : frais = 0 : montantNet = null : solde = null : contactNom = null : contactNumero = null;
-}
-
 double _num(String s) => double.parse(s.replaceAll(',', '.').trim());
 
 /// Extrait la date embarquée dans un identifiant de transaction Orange
