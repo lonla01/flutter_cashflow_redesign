@@ -1,20 +1,23 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:intl/date_symbol_data_local.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'config/supabase_config.dart';
 import 'db/app_database.dart';
+import 'screens/auth_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'services/auth_gate.dart';
+import 'services/sync_service.dart';
+import 'widgets/sync_status_badge.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (kIsWeb) {
-    databaseFactory = databaseFactoryFfiWeb;
-  }
   await initializeDateFormatting('fr_FR', null);
+  await Supabase.initialize(url: SupabaseConfig.url, publishableKey: SupabaseConfig.anonKey);
   runApp(const MobileMoneyTrackerApp());
 }
 
@@ -35,6 +38,13 @@ class MobileMoneyTrackerApp extends StatelessWidget {
   }
 }
 
+/// Racine de l'app : gère dans l'ordre (1) l'authentification — la seule
+/// étape qui exige une connexion, au tout premier lancement — puis (2) la
+/// présence de données locales, exactement comme en Phase 1. Une fois
+/// authentifié, tout le reste ne dépend plus que de la base locale : la
+/// session Supabase est restaurée depuis le stockage local par
+/// `Supabase.initialize()`, donc `AuthGate.current.isAuthenticated` ne
+/// nécessite aucun appel réseau.
 class _RacineApp extends StatefulWidget {
   const _RacineApp();
 
@@ -43,13 +53,41 @@ class _RacineApp extends StatefulWidget {
 }
 
 class _RacineAppState extends State<_RacineApp> {
+  late bool _authentifie = AuthGate.current.isAuthenticated;
   bool? _aDesDonnees;
   Object? _erreur;
+  StreamSubscription<bool>? _authSub;
+  late final SyncService _syncService = SyncServiceFactory.builder(AppDatabase.instance);
 
   @override
   void initState() {
     super.initState();
-    _verifier();
+    _authSub = AuthGate.current.onAuthChanged.listen(_onAuthChanged);
+    if (_authentifie) {
+      _syncService.start();
+      _verifier();
+    }
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    _syncService.stop();
+    super.dispose();
+  }
+
+  void _onAuthChanged(bool authentifie) {
+    if (!mounted) return;
+    setState(() {
+      _authentifie = authentifie;
+      if (!authentifie) _aDesDonnees = null;
+    });
+    if (authentifie) {
+      _syncService.start();
+      _verifier();
+    } else {
+      _syncService.stop();
+    }
   }
 
   Future<void> _verifier() async {
@@ -65,6 +103,9 @@ class _RacineAppState extends State<_RacineApp> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_authentifie) {
+      return const AuthScreen();
+    }
     if (_erreur != null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Erreur de démarrage')),
@@ -80,12 +121,14 @@ class _RacineAppState extends State<_RacineApp> {
     if (_aDesDonnees == false) {
       return OnboardingScreen(onTermine: () => setState(() => _aDesDonnees = true));
     }
-    return const _ShellPrincipal();
+    return _ShellPrincipal(syncService: _syncService);
   }
 }
 
 class _ShellPrincipal extends StatefulWidget {
-  const _ShellPrincipal();
+  const _ShellPrincipal({required this.syncService});
+
+  final SyncService syncService;
 
   @override
   State<_ShellPrincipal> createState() => _ShellPrincipalState();
@@ -100,7 +143,10 @@ class _ShellPrincipalState extends State<_ShellPrincipal> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_titres[_index])),
+      appBar: AppBar(
+        title: Text(_titres[_index]),
+        actions: [SyncStatusBadge(syncService: widget.syncService)],
+      ),
       body: IndexedStack(index: _index, children: _ecrans),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,

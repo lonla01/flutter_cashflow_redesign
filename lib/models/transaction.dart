@@ -2,6 +2,14 @@ import 'package:uuid/uuid.dart';
 
 const _uuid = Uuid();
 
+/// Parse un champ numérique venant d'une Map, qu'il arrive comme num
+/// (base locale) ou comme String (Postgrest sérialise parfois `numeric`
+/// en JSON string). Utilisé par [MoneyTransaction.fromMap], réutilisé tel
+/// quel pour parser aussi bien une ligne locale qu'une ligne Supabase.
+double? _num(Object? value) => value == null ? null : num.parse(value.toString()).toDouble();
+
+double _numRequis(Object? value) => _num(value)!;
+
 /// Opérateur source de la transaction.
 enum TransactionSource { orangeMoney, mtnMomo }
 
@@ -128,10 +136,10 @@ class MoneyTransaction {
         id: map['id'] as String,
         source: sourceFromString(map['source'] as String),
         type: typeFromString(map['type'] as String),
-        montant: (map['montant'] as num).toDouble(),
-        frais: (map['frais'] as num?)?.toDouble() ?? 0,
-        montantNet: (map['montant_net'] as num?)?.toDouble(),
-        soldeApres: (map['solde_apres'] as num?)?.toDouble(),
+        montant: _numRequis(map['montant']),
+        frais: _num(map['frais']) ?? 0,
+        montantNet: _num(map['montant_net']),
+        soldeApres: _num(map['solde_apres']),
         contactNom: map['contact_nom'] as String?,
         contactNumero: map['contact_numero'] as String?,
         categorie: map['categorie'] as String? ?? 'Autre',

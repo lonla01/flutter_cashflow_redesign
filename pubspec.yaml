@@ -11,11 +11,16 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
 
-  # Base de données locale SQLite (pas de génération de code requise, contrairement à Drift,
-  # ce qui la rend plus sûre à écrire "à la main" sans pouvoir compiler/tester ici)
-  sqflite: ^2.3.3+1
+  # Base de données locale SQLite via Drift (génération de code avec build_runner,
+  # voir Phase 2 : la base locale reste la source de vérité immédiate, même hors-ligne)
+  drift: ^2.35.0
+  drift_flutter: ^0.3.1
   path: ^1.9.0
   path_provider: ^2.1.4
+
+  # Synchronisation cloud (Phase 2)
+  supabase_flutter: ^2.17.2
+  connectivity_plus: ^7.3.1
 
   # Utilitaires
   intl: ^0.19.0
@@ -34,12 +39,13 @@ dependencies:
   # Fork maintenu de `telephony` (abandonné, incompatible AGP 8+ : pas de namespace)
   another_telephony: ^0.4.1
   permission_handler: ^11.3.1
-  sqflite_common_ffi_web: ^1.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  drift_dev: ^2.35.0
+  build_runner: ^2.16.1
 
 flutter:
   uses-material-design: true

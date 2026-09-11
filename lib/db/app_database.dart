@@ -1,25 +1,55 @@
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
-import 'package:sqflite/sqflite.dart';
+import 'dart:convert';
+
+import 'package:drift/drift.dart';
+import 'package:drift_flutter/drift_flutter.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../models/category_rule.dart';
 import '../models/transaction.dart';
+import 'drift_database.dart';
 
-/// Accès unique à la base locale. La base locale est la source de
-/// vérité immédiate de l'app (voir prompt Phase 2 pour la synchro cloud
-/// à venir) : toute écriture passe par ici en premier, sans dépendance réseau.
+/// Accès unique à la base locale. La base locale reste la source de
+/// vérité immédiate de l'app, jamais un simple cache en attente du
+/// serveur : toute écriture passe par ici en premier, sans dépendance
+/// réseau. La synchronisation cloud (Supabase, voir SyncService) est
+/// purement additive et pilotée depuis la table `sync_queue` remplie ici.
 ///
-/// Sur mobile (Android/iOS), la vraie base SQLite (sqflite) est utilisée.
-/// Sur le web, sqflite n'a pas de sens ici : la lecture des SMS n'existe
-/// pas dans un navigateur, donc le mode web ne sert qu'à itérer sur l'UI.
-/// On utilise alors un stockage 100% en mémoire (perdu au refresh), pour
-/// éviter toute la mise en place de sqflite_common_ffi_web / wasm.
+/// Sur mobile (Android/iOS), la vraie base SQLite est gérée par Drift
+/// (sqlite3 natif via FFI, voir drift_database.dart).
+/// Sur le web, la lecture des SMS n'existe pas dans un navigateur, donc le
+/// mode web ne sert qu'à itérer sur l'UI. On utilise alors un stockage
+/// 100% en mémoire (perdu au refresh), pour éviter toute la mise en place
+/// de Drift/sqlite3.wasm côté web — jamais un vrai cible de l'app.
 class AppDatabase {
-  AppDatabase._();
-  static final AppDatabase instance = AppDatabase._();
+  AppDatabase._() : _driftDb = kIsWeb ? null : AppDatabaseDrift(_openConnection());
 
-  Database? _db;
+  AppDatabase._withDrift(this._driftDb);
+
+  /// Instance partagée par toute l'app. Mutable pour permettre son
+  /// remplacement dans les tests (`AppDatabase.withExecutor(...)`).
+  static AppDatabase instance = AppDatabase._();
+
+  /// Construit une instance non-singleton pour les tests, câblée sur
+  /// l'exécuteur Drift fourni (typiquement `NativeDatabase.memory()`).
+  factory AppDatabase.withExecutor(QueryExecutor executor) =>
+      AppDatabase._withDrift(AppDatabaseDrift(executor));
+
+  final AppDatabaseDrift? _driftDb;
+
+  AppDatabaseDrift get _db {
+    assert(!kIsWeb, '_db ne doit pas être utilisé sur le web.');
+    return _driftDb!;
+  }
+
+  static QueryExecutor _openConnection() => driftDatabase(
+        name: 'mobile_money_tracker',
+        native: const DriftNativeOptions(databaseDirectory: getApplicationSupportDirectory),
+      );
+
+  Future<void> close() async {
+    await _driftDb?.close();
+  }
 
   // ---------------------------------------------------------------------
   // Stockage en mémoire (web uniquement)
@@ -28,69 +58,15 @@ class AppDatabase {
   final List<Map<String, Object?>> _memCategoryRules = [];
   int _memCategoryRuleNextId = 1;
 
-  Future<Database> get database async {
-    assert(!kIsWeb, 'database ne doit pas être utilisé sur le web, utiliser les méthodes publiques qui branchent automatiquement.');
-    _db ??= await _init();
-    return _db!;
-  }
-
-  Future<Database> _init() async {
-    final docsDir = await getApplicationDocumentsDirectory();
-    final dbPath = p.join(docsDir.path, 'mobile_money_tracker.db');
-    return openDatabase(
-      dbPath,
-      version: 1,
-      onCreate: _createSchema,
-    );
-  }
-
-  Future<void> _createSchema(Database db, int version) async {
-    await db.execute('''
-          CREATE TABLE transactions (
-            id TEXT PRIMARY KEY,
-            source TEXT NOT NULL,
-            type TEXT NOT NULL,
-            montant REAL NOT NULL,
-            frais REAL NOT NULL DEFAULT 0,
-            montant_net REAL NOT NULL,
-            solde_apres REAL,
-            contact_nom TEXT,
-            contact_numero TEXT,
-            categorie TEXT NOT NULL DEFAULT 'Autre',
-            date_transaction TEXT NOT NULL,
-            id_transaction_operateur TEXT,
-            sms_brut TEXT,
-            notes TEXT NOT NULL DEFAULT '',
-            statut_edition TEXT NOT NULL DEFAULT 'auto',
-            derniere_modification TEXT NOT NULL
-          );
-        ''');
-
-    // Un même id_transaction_operateur ne doit jamais être inséré deux
-    // fois : c'est la clé de déduplication lors d'un rescan de
-    // l'historique SMS.
-    await db.execute('''
-          CREATE UNIQUE INDEX idx_transactions_operateur_id
-          ON transactions(id_transaction_operateur)
-          WHERE id_transaction_operateur IS NOT NULL;
-        ''');
-
-    await db.execute('''
-          CREATE TABLE category_rules (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            match_type TEXT NOT NULL,
-            match_value TEXT NOT NULL,
-            categorie TEXT NOT NULL
-          );
-        ''');
-  }
-
   // ---------------------------------------------------------------------
   // Transactions
   // ---------------------------------------------------------------------
 
   /// Insère une transaction. Retourne false sans lever d'erreur si une
   /// transaction avec le même id_transaction_operateur existe déjà.
+  /// Crée aussi une entrée `sync_queue` dans la même transaction Drift, de
+  /// sorte que "toute écriture locale ⇒ une entrée en attente" soit une
+  /// garantie structurelle plutôt qu'une convention.
   Future<bool> insertTransactionIfNew(MoneyTransaction tx) async {
     if (kIsWeb) {
       if (tx.idTransactionOperateur != null) {
@@ -103,22 +79,17 @@ class AppDatabase {
       return true;
     }
 
-    final db = await database;
-    if (tx.idTransactionOperateur != null) {
-      final existing = await db.query(
-        'transactions',
-        where: 'id_transaction_operateur = ?',
-        whereArgs: [tx.idTransactionOperateur],
-        limit: 1,
-      );
-      if (existing.isNotEmpty) return false;
-    }
-    await db.insert(
-      'transactions',
-      tx.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
-    return true;
+    return _db.transaction(() async {
+      if (tx.idTransactionOperateur != null) {
+        final existing = await (_db.select(_db.transactions)
+              ..where((t) => t.idTransactionOperateur.equals(tx.idTransactionOperateur!)))
+            .getSingleOrNull();
+        if (existing != null) return false;
+      }
+      await _db.into(_db.transactions).insert(_companionFromModel(tx));
+      await _enqueueSync(tx);
+      return true;
+    });
   }
 
   Future<void> updateTransaction(MoneyTransaction tx) async {
@@ -132,13 +103,11 @@ class AppDatabase {
       return;
     }
 
-    final db = await database;
-    await db.update(
-      'transactions',
-      tx.toMap(),
-      where: 'id = ?',
-      whereArgs: [tx.id],
-    );
+    await _db.transaction(() async {
+      await (_db.update(_db.transactions)..where((t) => t.id.equals(tx.id)))
+          .write(_companionFromModel(tx));
+      await _enqueueSync(tx);
+    });
   }
 
   Future<List<MoneyTransaction>> getAllTransactions({
@@ -159,33 +128,24 @@ class AppDatabase {
       return rows.map(MoneyTransaction.fromMap).toList();
     }
 
-    final db = await database;
-    final where = <String>[];
-    final args = <Object?>[];
+    final query = _db.select(_db.transactions)
+      ..orderBy([(t) => OrderingTerm.desc(t.dateTransaction)]);
     if (from != null) {
-      where.add('date_transaction >= ?');
-      args.add(from.toIso8601String());
+      query.where((t) => t.dateTransaction.isBiggerOrEqualValue(from));
     }
     if (to != null) {
-      where.add('date_transaction <= ?');
-      args.add(to.toIso8601String());
+      query.where((t) => t.dateTransaction.isSmallerOrEqualValue(to));
     }
-    final rows = await db.query(
-      'transactions',
-      where: where.isEmpty ? null : where.join(' AND '),
-      whereArgs: args.isEmpty ? null : args,
-      orderBy: 'date_transaction DESC',
-    );
-    return rows.map(MoneyTransaction.fromMap).toList();
+    final rows = await query.get();
+    return rows.map(_modelFromRow).toList();
   }
 
   Future<int> countTransactions() async {
-    if (kIsWeb) {
-      return _memTransactions.length;
-    }
-    final db = await database;
-    final res = await db.rawQuery('SELECT COUNT(*) as c FROM transactions');
-    return Sqflite.firstIntValue(res) ?? 0;
+    if (kIsWeb) return _memTransactions.length;
+    final countExp = _db.transactions.id.count();
+    final row =
+        await (_db.selectOnly(_db.transactions)..addColumns([countExp])).getSingle();
+    return row.read(countExp) ?? 0;
   }
 
   Future<void> deleteAllTransactions() async {
@@ -193,12 +153,16 @@ class AppDatabase {
       _memTransactions.clear();
       return;
     }
-    final db = await database;
-    await db.delete('transactions');
+    await _db.delete(_db.transactions).go();
   }
 
   // ---------------------------------------------------------------------
   // Règles de catégorisation
+  //
+  // Volontairement jamais synchronisées vers Supabase (Phase 2) : leur id
+  // est un entier auto-incrémenté local sans identité stable entre
+  // appareils (contrairement à l'id uuid des transactions), donc un
+  // upsert-par-id y corromprait les données en cas d'usage multi-appareil.
   // ---------------------------------------------------------------------
 
   Future<void> upsertCategoryRule(CategoryRule rule) async {
@@ -219,22 +183,21 @@ class AppDatabase {
       return;
     }
 
-    final db = await database;
-    final existing = await db.query(
-      'category_rules',
-      where: 'match_type = ? AND match_value = ?',
-      whereArgs: [rule.matchType, rule.matchValue],
-      limit: 1,
-    );
-    if (existing.isNotEmpty) {
-      await db.update(
-        'category_rules',
-        {'categorie': rule.categorie},
-        where: 'id = ?',
-        whereArgs: [existing.first['id']],
-      );
+    final existing = await (_db.select(_db.categoryRules)
+          ..where((r) =>
+              r.matchType.equals(rule.matchType) & r.matchValue.equals(rule.matchValue)))
+        .getSingleOrNull();
+    if (existing != null) {
+      await (_db.update(_db.categoryRules)..where((r) => r.id.equals(existing.id)))
+          .write(CategoryRulesCompanion(categorie: Value(rule.categorie)));
     } else {
-      await db.insert('category_rules', rule.toMap());
+      await _db.into(_db.categoryRules).insert(
+            CategoryRulesCompanion.insert(
+              matchType: rule.matchType,
+              matchValue: rule.matchValue,
+              categorie: rule.categorie,
+            ),
+          );
     }
   }
 
@@ -242,8 +205,182 @@ class AppDatabase {
     if (kIsWeb) {
       return _memCategoryRules.map(CategoryRule.fromMap).toList();
     }
-    final db = await database;
-    final rows = await db.query('category_rules');
-    return rows.map(CategoryRule.fromMap).toList();
+    final rows = await _db.select(_db.categoryRules).get();
+    return rows
+        .map((r) => CategoryRule(
+              id: r.id,
+              matchType: r.matchType,
+              matchValue: r.matchValue,
+              categorie: r.categorie,
+            ))
+        .toList();
   }
+
+  // ---------------------------------------------------------------------
+  // Synchronisation (Phase 2) — consommé par SyncService, jamais par l'UI
+  // directement.
+  // ---------------------------------------------------------------------
+
+  Future<void> _enqueueSync(MoneyTransaction tx) async {
+    final now = DateTime.now();
+    await _db.into(_db.syncQueueEntries).insert(
+          SyncQueueEntriesCompanion.insert(
+            entityId: tx.id,
+            payload: jsonEncode(tx.toMap()),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+  }
+
+  /// Entrées prêtes pour un essai de synchronisation : `en_attente`, sans
+  /// backoff programmé ou dont le backoff est déjà écoulé.
+  Future<List<SyncQueueEntryRow>> getSyncableEntries() {
+    final now = DateTime.now();
+    return (_db.select(_db.syncQueueEntries)
+          ..where((e) =>
+              e.status.equals('en_attente') &
+              (e.nextAttemptAt.isNull() | e.nextAttemptAt.isSmallerOrEqualValue(now)))
+          ..orderBy([(e) => OrderingTerm.asc(e.createdAt)]))
+        .get();
+  }
+
+  Stream<List<SyncQueueEntryRow>> watchPendingSyncEntries() {
+    return (_db.select(_db.syncQueueEntries)..where((e) => e.status.equals('en_attente')))
+        .watch();
+  }
+
+  Future<bool> hasFailedSyncEntries() async {
+    final countExp = _db.syncQueueEntries.id.count();
+    final row = await (_db.selectOnly(_db.syncQueueEntries)
+          ..addColumns([countExp])
+          ..where(_db.syncQueueEntries.status.equals('echec')))
+        .getSingle();
+    return (row.read(countExp) ?? 0) > 0;
+  }
+
+  Stream<int> watchPendingSyncCount() {
+    final countExp = _db.syncQueueEntries.id.count();
+    final query = _db.selectOnly(_db.syncQueueEntries)
+      ..addColumns([countExp])
+      ..where(_db.syncQueueEntries.status.equals('en_attente'));
+    return query.map((row) => row.read(countExp) ?? 0).watchSingle();
+  }
+
+  Future<void> markSyncEntry(
+    int id, {
+    required String status,
+    int? attemptCount,
+    DateTime? nextAttemptAt,
+    String? lastError,
+  }) {
+    return (_db.update(_db.syncQueueEntries)..where((e) => e.id.equals(id))).write(
+      SyncQueueEntriesCompanion(
+        status: Value(status),
+        updatedAt: Value(DateTime.now()),
+        attemptCount: attemptCount != null ? Value(attemptCount) : const Value.absent(),
+        nextAttemptAt: Value(nextAttemptAt),
+        lastError: Value(lastError),
+      ),
+    );
+  }
+
+  /// Redonne une chance aux entrées en échec à la reconnexion (jeton
+  /// expiré, coupure transitoire...).
+  Future<void> resetFailedEntriesToPending() {
+    return (_db.update(_db.syncQueueEntries)..where((e) => e.status.equals('echec'))).write(
+      SyncQueueEntriesCompanion(
+        status: const Value('en_attente'),
+        attemptCount: const Value(0),
+        nextAttemptAt: const Value(null),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Applique côté local une ligne reçue du serveur (le serveur fait
+  /// autorité : soit elle est nouvelle localement, soit elle a déjà gagné
+  /// le conflit last-write-wins). N'écrase jamais un enregistrement local
+  /// strictement plus récent (une pull tardive ne doit jamais effacer une
+  /// édition locale pas encore poussée).
+  Future<void> applyRemoteTransaction(MoneyTransaction remote) async {
+    if (kIsWeb) return;
+    final local = await (_db.select(_db.transactions)..where((t) => t.id.equals(remote.id)))
+        .getSingleOrNull();
+    if (local != null && !remote.derniereModification.isAfter(local.derniereModification)) {
+      return;
+    }
+    await _db.into(_db.transactions).insertOnConflictUpdate(_companionFromModel(remote));
+  }
+
+  Future<void> recordConflict(
+    String transactionId,
+    Map<String, Object?> localVersion,
+    Map<String, Object?> remoteVersion,
+  ) {
+    return _db.into(_db.conflictHistoryEntries).insert(
+          ConflictHistoryEntriesCompanion.insert(
+            transactionId: transactionId,
+            localVersionJson: jsonEncode(localVersion),
+            remoteVersionJson: jsonEncode(remoteVersion),
+            detectedAt: DateTime.now(),
+          ),
+        );
+  }
+
+  Future<DateTime> getLastPulledAt() async {
+    final row =
+        await (_db.select(_db.syncMetaTable)..where((m) => m.id.equals(0))).getSingle();
+    return row.lastPulledAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  Future<void> setLastPulledAt(DateTime value) {
+    return (_db.update(_db.syncMetaTable)..where((m) => m.id.equals(0)))
+        .write(SyncMetaTableCompanion(lastPulledAt: Value(value)));
+  }
+
+  // ---------------------------------------------------------------------
+  // Conversion MoneyTransaction <-> ligne Drift
+  // ---------------------------------------------------------------------
+
+  TransactionsCompanion _companionFromModel(MoneyTransaction tx) => TransactionsCompanion(
+        id: Value(tx.id),
+        source: Value(sourceToString(tx.source)),
+        type: Value(typeToString(tx.type)),
+        montant: Value(tx.montant),
+        frais: Value(tx.frais),
+        montantNet: Value(tx.montantNet),
+        soldeApres: Value(tx.soldeApres),
+        contactNom: Value(tx.contactNom),
+        contactNumero: Value(tx.contactNumero),
+        categorie: Value(tx.categorie),
+        dateTransaction: Value(tx.dateTransaction),
+        idTransactionOperateur: Value(tx.idTransactionOperateur),
+        smsBrut: Value(tx.smsBrut),
+        notes: Value(tx.notes),
+        statutEdition:
+            Value(tx.statutEdition == EditStatus.auto ? 'auto' : 'edite_manuellement'),
+        derniereModification: Value(tx.derniereModification),
+      );
+
+  MoneyTransaction _modelFromRow(TransactionRow row) => MoneyTransaction(
+        id: row.id,
+        source: sourceFromString(row.source),
+        type: typeFromString(row.type),
+        montant: row.montant,
+        frais: row.frais,
+        montantNet: row.montantNet,
+        soldeApres: row.soldeApres,
+        contactNom: row.contactNom,
+        contactNumero: row.contactNumero,
+        categorie: row.categorie,
+        dateTransaction: row.dateTransaction,
+        idTransactionOperateur: row.idTransactionOperateur,
+        smsBrut: row.smsBrut,
+        notes: row.notes,
+        statutEdition: row.statutEdition == 'edite_manuellement'
+            ? EditStatus.editeManuellement
+            : EditStatus.auto,
+        derniereModification: row.derniereModification,
+      );
 }
