@@ -21,6 +21,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _modeInscription = false;
   bool _enCours = false;
   String? _erreur;
+  String? _emailConfirmationEnvoyeeA;
 
   @override
   void dispose() {
@@ -37,10 +38,14 @@ class _AuthScreenState extends State<AuthScreen> {
     });
     try {
       if (_modeInscription) {
-        await AuthGate.current.signUp(
-          email: _emailController.text.trim(),
+        final email = _emailController.text.trim();
+        final sessionOuverte = await AuthGate.current.signUp(
+          email: email,
           password: _passwordController.text,
         );
+        if (!sessionOuverte && mounted) {
+          setState(() => _emailConfirmationEnvoyeeA = email);
+        }
       } else {
         await AuthGate.current.signIn(
           email: _emailController.text.trim(),
@@ -57,6 +62,34 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_emailConfirmationEnvoyeeA != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Confirmez votre email')),
+        body: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Un email de confirmation a été envoyé à '
+                '$_emailConfirmationEnvoyeeA. Cliquez sur le lien qu\'il '
+                'contient pour activer votre compte, puis connectez-vous.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => setState(() {
+                  _emailConfirmationEnvoyeeA = null;
+                  _modeInscription = false;
+                }),
+                child: const Text('Retour à la connexion'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(title: Text(_modeInscription ? 'Créer un compte' : 'Connexion')),
       body: Padding(

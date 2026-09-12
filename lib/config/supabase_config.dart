@@ -16,4 +16,12 @@ class SupabaseConfig {
     'SUPABASE_ANON_KEY',
     defaultValue: 'sb_publishable_SBQ4hi4-zWuMzXxxH3l4bw_gre6Ndv3',
   );
+
+  /// URL de redirection pour le lien de confirmation d'email envoyé par
+  /// Supabase à l'inscription. Doit être un schéma personnalisé (pas
+  /// `http://localhost`, qui ne mène nulle part sur mobile) enregistré à la
+  /// fois côté app (AndroidManifest.xml / Info.plist) et côté Supabase
+  /// (Dashboard > Authentication > URL Configuration > Redirect URLs).
+  static const String emailConfirmationRedirectUrl =
+      'mobilemoneytracker://login-callback';
 }

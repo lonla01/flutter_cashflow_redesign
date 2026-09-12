@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/supabase_config.dart';
+
 /// Abstraction sur l'authentification, pour permettre l'injection d'un faux
 /// service dans les tests sans dépendre du client Supabase réel.
 ///
@@ -18,13 +20,22 @@ abstract class AuthGate {
 
   Future<void> signIn({required String email, required String password});
 
-  Future<void> signUp({required String email, required String password});
+  /// Retourne `true` si l'inscription a immédiatement ouvert une session
+  /// (confirmation d'email désactivée côté Supabase), `false` si un email de
+  /// confirmation vient d'être envoyé et que la session ne sera créée
+  /// qu'après que l'utilisateur ait cliqué sur le lien qu'il contient.
+  Future<bool> signUp({required String email, required String password});
 
   Future<void> signOut();
 }
 
 class SupabaseAuthGate implements AuthGate {
-  GoTrueClient get _auth => Supabase.instance.client.auth;
+  /// [auth] est injectable pour les tests (ex. un `GoTrueClient` simulé avec
+  /// mocktail) ; par défaut, utilise le client Supabase réel initialisé dans
+  /// main.dart.
+  SupabaseAuthGate({GoTrueClient? auth}) : _auth = auth ?? Supabase.instance.client.auth;
+
+  final GoTrueClient _auth;
 
   @override
   bool get isAuthenticated => _auth.currentSession != null;
@@ -39,8 +50,13 @@ class SupabaseAuthGate implements AuthGate {
   }
 
   @override
-  Future<void> signUp({required String email, required String password}) async {
-    await _auth.signUp(email: email, password: password);
+  Future<bool> signUp({required String email, required String password}) async {
+    final response = await _auth.signUp(
+      email: email,
+      password: password,
+      emailRedirectTo: SupabaseConfig.emailConfirmationRedirectUrl,
+    );
+    return response.session != null;
   }
 
   @override

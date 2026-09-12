@@ -46,6 +46,11 @@ dev_dependencies:
   flutter_lints: ^4.0.0
   drift_dev: ^2.35.0
   build_runner: ^2.16.1
+  mocktail: ^1.0.4
+  # Utilisé uniquement dans les tests pour construire des Session/User factices
+  # (déjà tiré en transitif par supabase_flutter -> gotrue, mais listé ici
+  # explicitement pour pouvoir l'importer directement dans test/).
+  gotrue: ^2.27.2
 
 flutter:
   uses-material-design: true

@@ -6,11 +6,17 @@ import 'package:mobile_money_tracker/services/sync_transport.dart';
 
 /// Faux [AuthGate] pour les tests : pas de réseau, pas de client Supabase.
 class FakeAuthGate implements AuthGate {
-  FakeAuthGate({bool authenticated = true}) : _authenticated = authenticated;
+  FakeAuthGate({bool authenticated = true, this.confirmEmailOnSignUp = false})
+      : _authenticated = authenticated;
 
   bool _authenticated;
   final _controller = StreamController<bool>.broadcast();
   Object? errorOnSignIn;
+
+  /// Si `true`, simule un projet Supabase avec confirmation d'email requise :
+  /// `signUp` n'ouvre pas de session tant que le lien reçu par email n'a pas
+  /// été suivi.
+  bool confirmEmailOnSignUp;
 
   @override
   bool get isAuthenticated => _authenticated;
@@ -30,9 +36,11 @@ class FakeAuthGate implements AuthGate {
   }
 
   @override
-  Future<void> signUp({required String email, required String password}) async {
+  Future<bool> signUp({required String email, required String password}) async {
     if (errorOnSignIn != null) throw errorOnSignIn!;
+    if (confirmEmailOnSignUp) return false;
     setAuthenticated(true);
+    return true;
   }
 
   @override
