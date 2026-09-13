@@ -110,6 +110,60 @@ class AppDatabase {
     });
   }
 
+  /// Réassigne [nouvelleCategorie] à toutes les transactions "similaires" à
+  /// [tx] (même numéro de contact exact, ou à défaut même nom de contact
+  /// exact — hors [tx] elle-même), suite à une correction manuelle de
+  /// catégorie. Chaque ligne modifiée passe par le même chemin que
+  /// [updateTransaction] (écriture + entrée `sync_queue`), pour que la
+  /// garantie "toute écriture locale ⇒ une entrée en attente" reste valable
+  /// ici aussi. Retourne le nombre de transactions effectivement modifiées.
+  Future<int> reassignSimilarTransactions(MoneyTransaction tx, String nouvelleCategorie) async {
+    final numero = tx.contactNumero;
+    final nom = tx.contactNom;
+    final aUnCritere = (numero != null && numero.isNotEmpty) || (nom != null && nom.isNotEmpty);
+    if (!aUnCritere) return 0;
+
+    if (kIsWeb) {
+      var count = 0;
+      for (final row in _memTransactions) {
+        if (row['id'] == tx.id) continue;
+        final matches = (numero != null && numero.isNotEmpty)
+            ? row['contact_numero'] == numero
+            : row['contact_nom'] == nom;
+        if (matches && row['categorie'] != nouvelleCategorie) {
+          row['categorie'] = nouvelleCategorie;
+          row['derniere_modification'] = DateTime.now().toIso8601String();
+          count++;
+        }
+      }
+      return count;
+    }
+
+    return _db.transaction(() async {
+      final query = _db.select(_db.transactions)
+        ..where((t) => t.id.equals(tx.id).not());
+      if (numero != null && numero.isNotEmpty) {
+        query.where((t) => t.contactNumero.equals(numero));
+      } else {
+        query.where((t) => t.contactNom.equals(nom!));
+      }
+      final rows = await query.get();
+
+      var count = 0;
+      for (final row in rows) {
+        if (row.categorie == nouvelleCategorie) continue;
+        final similaire = _modelFromRow(row)
+          ..categorie = nouvelleCategorie
+          ..derniereModification = DateTime.now();
+        await (_db.update(_db.transactions)..where((t) => t.id.equals(row.id)))
+            .write(_companionFromModel(similaire));
+        await _enqueueSync(similaire);
+        count++;
+      }
+      return count;
+    });
+  }
+
   Future<List<MoneyTransaction>> getAllTransactions({
     DateTime? from,
     DateTime? to,
@@ -248,6 +302,18 @@ class AppDatabase {
   Stream<List<SyncQueueEntryRow>> watchPendingSyncEntries() {
     return (_db.select(_db.syncQueueEntries)..where((e) => e.status.equals('en_attente')))
         .watch();
+  }
+
+  /// Dernier message d'erreur de synchronisation connu, pour diagnostic sur
+  /// l'écran de connexion. `null` si aucune entrée n'a jamais échoué.
+  Future<String?> getLastSyncError() async {
+    if (kIsWeb) return null;
+    final row = await (_db.select(_db.syncQueueEntries)
+          ..where((e) => e.lastError.isNotNull())
+          ..orderBy([(e) => OrderingTerm.desc(e.updatedAt)])
+          ..limit(1))
+        .getSingleOrNull();
+    return row?.lastError;
   }
 
   Future<bool> hasFailedSyncEntries() async {

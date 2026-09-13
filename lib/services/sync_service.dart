@@ -82,6 +82,15 @@ class SyncService {
     _queueSub?.cancel();
   }
 
+  /// Force une tentative de synchronisation immédiate (ex. bouton
+  /// "Réessayer" de l'écran de connexion) : redonne une chance aux entrées
+  /// en échec puis relance un cycle, sans attendre le prochain déclencheur
+  /// réactif (reconnexion, nouvelle entrée en file).
+  void retryNow() {
+    unawaited(db.resetFailedEntriesToPending());
+    _kick();
+  }
+
   void _kick() {
     if (_running) {
       _rerunRequested = true;

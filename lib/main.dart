@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/supabase_config.dart';
 import 'db/app_database.dart';
 import 'screens/auth_screen.dart';
+import 'screens/connection_status_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
@@ -145,7 +146,14 @@ class _ShellPrincipalState extends State<_ShellPrincipal> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_titres[_index]),
-        actions: [SyncStatusBadge(syncService: widget.syncService)],
+        actions: [
+          InkWell(
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => ConnectionStatusScreen(syncService: widget.syncService),
+            )),
+            child: SyncStatusBadge(syncService: widget.syncService),
+          ),
+        ],
       ),
       body: IndexedStack(index: _index, children: _ecrans),
       bottomNavigationBar: NavigationBar(

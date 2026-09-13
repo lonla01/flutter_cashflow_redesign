@@ -44,13 +44,16 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     tx.statutEdition = EditStatus.editeManuellement;
 
     await AppDatabase.instance.updateTransaction(tx);
+    var nbSimilaires = 0;
     if (categorieChangee) {
       await CategorizationService(AppDatabase.instance).learnFromCorrection(tx, _categorie);
+      nbSimilaires = await AppDatabase.instance.reassignSimilarTransactions(tx, _categorie);
     }
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Transaction mise à jour.')),
-      );
+      final message = nbSimilaires > 0
+          ? 'Transaction mise à jour. $nbSimilaires transaction${nbSimilaires > 1 ? 's' : ''} similaire${nbSimilaires > 1 ? 's' : ''} recatégorisée${nbSimilaires > 1 ? 's' : ''}.'
+          : 'Transaction mise à jour.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       Navigator.of(context).pop();
     }
   }
