@@ -351,6 +351,24 @@ class AppDatabase {
     );
   }
 
+  /// Réarme immédiatement toute entrée non synchronisée — `en_attente` (y
+  /// compris celles dont le backoff n'a pas encore expiré) ou `echec` —
+  /// pour un réessai manuel explicite (bouton "Réessayer maintenant" de
+  /// l'écran de connexion), qui ne doit pas attendre le prochain palier de
+  /// backoff comme le ferait une reconnexion automatique.
+  Future<void> forceRetryAllPending() {
+    return (_db.update(_db.syncQueueEntries)
+          ..where((e) => e.status.equals('en_attente') | e.status.equals('echec')))
+        .write(
+      SyncQueueEntriesCompanion(
+        status: const Value('en_attente'),
+        attemptCount: const Value(0),
+        nextAttemptAt: const Value(null),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
   /// Redonne une chance aux entrées en échec à la reconnexion (jeton
   /// expiré, coupure transitoire...).
   Future<void> resetFailedEntriesToPending() {

@@ -51,6 +51,11 @@ dev_dependencies:
   # (déjà tiré en transitif par supabase_flutter -> gotrue, mais listé ici
   # explicitement pour pouvoir l'importer directement dans test/).
   gotrue: ^2.27.2
+  # Client Postgrest/RPC pur Dart (déjà tiré en transitif par
+  # supabase_flutter), utilisé par le test de connexion backend
+  # (test/backend/) pour appeler le vrai projet Supabase sans dépendre des
+  # bindings Flutter.
+  supabase: ^2.16.1
 
 flutter:
   uses-material-design: true

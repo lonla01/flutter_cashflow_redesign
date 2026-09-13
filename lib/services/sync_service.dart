@@ -83,11 +83,13 @@ class SyncService {
   }
 
   /// Force une tentative de synchronisation immédiate (ex. bouton
-  /// "Réessayer" de l'écran de connexion) : redonne une chance aux entrées
-  /// en échec puis relance un cycle, sans attendre le prochain déclencheur
-  /// réactif (reconnexion, nouvelle entrée en file).
-  void retryNow() {
-    unawaited(db.resetFailedEntriesToPending());
+  /// "Réessayer" de l'écran de connexion) : réarme toute entrée non
+  /// synchronisée (backoff remis à zéro, y compris pour celles encore en
+  /// attente de leur prochain palier) puis relance un cycle, sans attendre
+  /// le prochain déclencheur réactif (reconnexion, nouvelle entrée en
+  /// file).
+  Future<void> retryNow() async {
+    await db.forceRetryAllPending();
     _kick();
   }
 
