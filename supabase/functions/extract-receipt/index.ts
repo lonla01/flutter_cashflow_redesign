@@ -110,7 +110,12 @@ Deno.serve(async (req) => {
     if (!anthropicResponse.ok) {
       const detail = await anthropicResponse.text();
       console.error('Anthropic error', anthropicResponse.status, detail);
-      return jsonResponse({ error: "Échec de l'appel au service d'extraction" }, 502);
+      // Le détail vient du corps d'erreur d'Anthropic (jamais la clé elle-
+      // même) : sans risque de le renvoyer au client, utile pour diagnostiquer.
+      return jsonResponse(
+        { error: `Échec de l'appel au service d'extraction (${anthropicResponse.status}) : ${detail}` },
+        502,
+      );
     }
 
     const payload = await anthropicResponse.json();
