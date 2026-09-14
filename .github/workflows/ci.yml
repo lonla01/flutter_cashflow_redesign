@@ -1,0 +1,33 @@
+name: CI
+
+# Enforces the "builds successfully" gate from the Git workflow doc:
+# flutter analyze + flutter test on every push/PR to main and staging.
+# Does NOT run the `live` tagged backend health check — that needs real
+# Supabase credentials and is meant to be run manually before a
+# main -> staging promotion (see the workflow doc, §2 and §7).
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main, staging]
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.4'
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test (offline suite; excludes the "live" tag by default)
+        run: flutter test
