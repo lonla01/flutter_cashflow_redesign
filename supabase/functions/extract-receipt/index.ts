@@ -18,8 +18,8 @@
 // le document "Git Workflow & Release Process") :
 //   supabase functions deploy extract-receipt
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-// Modèle optionnel (défaut : claude-sonnet-5) :
-//   supabase secrets set ANTHROPIC_MODEL=claude-haiku-4-5-20251001
+// Modèle optionnel (défaut : claude-haiku-4-5-20251001) :
+//   supabase secrets set ANTHROPIC_MODEL=claude-sonnet-5
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     if (!apiKey) {
       return jsonResponse({ error: 'Clé Anthropic non configurée côté serveur (ANTHROPIC_API_KEY)' }, 500);
     }
-    const model = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-sonnet-5';
+    const model = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-haiku-4-5-20251001';
 
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
