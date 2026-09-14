@@ -77,7 +77,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Column(
                 children: [
-                  _ligneInfo('Source', tx.source == TransactionSource.orangeMoney ? 'Orange Money' : 'MTN Mobile Money'),
+                  _ligneInfo('Source', sourceLabel(tx.source)),
                   _ligneInfo('Type', tx.type.name),
                   _ligneInfo(
                     'Montant',

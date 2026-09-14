@@ -11,7 +11,7 @@
 create table public.transactions (
   id uuid primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
-  source text not null check (source in ('orange_money','mtn_momo')),
+  source text not null check (source in ('orange_money','mtn_momo','manuel')),
   type text not null check (type in (
     'transfert_envoye','depot_recu','retrait',
     'paiement_marchand','reception','paiement_service'

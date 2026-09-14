@@ -40,6 +40,11 @@ dependencies:
   another_telephony: ^0.4.1
   permission_handler: ^11.3.1
 
+  # Saisie manuelle de transaction + photo de reçu (voir
+  # lib/screens/add_transaction_screen.dart et
+  # lib/services/receipt_extraction_service.dart).
+  image_picker: ^1.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

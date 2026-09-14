@@ -18,7 +18,7 @@ class ExportService {
       ['Date', 'Source', 'Type', 'Contact', 'Catégorie', 'Montant', 'Frais', 'Notes'],
       ...transactions.map((t) => [
             _dateFmt.format(t.dateTransaction),
-            t.source == TransactionSource.orangeMoney ? 'Orange Money' : 'MTN Mobile Money',
+            sourceLabel(t.source),
             t.type.name,
             t.contactNom ?? '',
             t.categorie,

@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../db/app_database.dart';
 import '../models/transaction.dart';
 import '../theme/app_theme.dart';
+import '../widgets/gradient_fab.dart';
 import '../widgets/transaction_tile.dart';
+import 'add_transaction_screen.dart';
 import 'transaction_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -67,7 +69,9 @@ class _HomeScreenState extends State<HomeScreen> {
     await _charger();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$nb transaction${nb > 1 ? 's' : ''} déplacée${nb > 1 ? 's' : ''} vers "$choix".')),
+      SnackBar(
+          content: Text(
+              '$nb transaction${nb > 1 ? 's' : ''} déplacée${nb > 1 ? 's' : ''} vers "$choix".')),
     );
   }
 
@@ -83,90 +87,108 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _appliquerFiltres() {
     _filtrees = _toutes.where((t) {
-      final matchCategorie = _categorieFiltre == null || t.categorie == _categorieFiltre;
+      final matchCategorie =
+          _categorieFiltre == null || t.categorie == _categorieFiltre;
       final matchRecherche = _recherche.isEmpty ||
           (t.contactNom ?? '').toLowerCase().contains(_recherche.toLowerCase());
       return matchCategorie && matchRecherche;
     }).toList();
   }
 
+  Future<void> _ajouterTransaction() async {
+    final cree = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => const AddTransactionScreen(),
+    ));
+    if (cree == true) _charger();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-          child: TextField(
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              hintText: 'Rechercher un contact...',
-              isDense: true,
+    return Scaffold(
+      floatingActionButton: _modeSelection
+          ? null
+          : GradientFab(
+              onPressed: _ajouterTransaction, tooltip: 'Nouvelle transaction'),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            child: TextField(
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: 'Rechercher un contact...',
+                isDense: true,
+              ),
+              onChanged: (v) => setState(() {
+                _recherche = v;
+                _appliquerFiltres();
+              }),
             ),
-            onChanged: (v) => setState(() {
-              _recherche = v;
-              _appliquerFiltres();
-            }),
           ),
-        ),
-        SizedBox(
-          height: 44,
-          child: StreamBuilder<List<String>>(
-            stream: AppDatabase.instance.watchCategories(),
-            builder: (context, snapshot) {
-              final categories = snapshot.data ?? const [];
-              return ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                children: [
-                  _chipCategorie(null, 'Toutes'),
-                  ...categories.map((c) => _chipCategorie(c, c)),
-                ],
-              );
-            },
+          SizedBox(
+            height: 44,
+            child: StreamBuilder<List<String>>(
+              stream: AppDatabase.instance.watchCategories(),
+              builder: (context, snapshot) {
+                final categories = snapshot.data ?? const [];
+                return ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  children: [
+                    _chipCategorie(null, 'Toutes'),
+                    ...categories.map((c) => _chipCategorie(c, c)),
+                  ],
+                );
+              },
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: _chargement
-              ? const Center(child: CircularProgressIndicator())
-              : _filtrees.isEmpty
-                  ? const Center(child: Text('Aucune transaction pour ce filtre.'))
-                  : Scrollbar(
-                      controller: _scrollController,
-                      thumbVisibility: true,
-                      trackVisibility: true,
-                      child: RefreshIndicator(
-                        onRefresh: _charger,
-                        child: ListView.separated(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                          itemCount: _filtrees.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final tx = _filtrees[index];
-                            return TransactionTile(
-                              transaction: tx,
-                              modeSelection: _modeSelection,
-                              selectionnee: _selection.contains(tx.id),
-                              onLongPress: () => _basculerSelection(tx.id),
-                              onTap: () async {
-                                if (_modeSelection) {
-                                  _basculerSelection(tx.id);
-                                  return;
-                                }
-                                await Navigator.of(context).push(MaterialPageRoute(
-                                  builder: (_) => TransactionDetailScreen(transaction: tx),
-                                ));
-                                _charger();
-                              },
-                            );
-                          },
+          const SizedBox(height: 8),
+          Expanded(
+            child: _chargement
+                ? const Center(child: CircularProgressIndicator())
+                : _filtrees.isEmpty
+                    ? const Center(
+                        child: Text('Aucune transaction pour ce filtre.'))
+                    : Scrollbar(
+                        controller: _scrollController,
+                        thumbVisibility: true,
+                        trackVisibility: true,
+                        child: RefreshIndicator(
+                          onRefresh: _charger,
+                          child: ListView.separated(
+                            controller: _scrollController,
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                            itemCount: _filtrees.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final tx = _filtrees[index];
+                              return TransactionTile(
+                                transaction: tx,
+                                modeSelection: _modeSelection,
+                                selectionnee: _selection.contains(tx.id),
+                                onLongPress: () => _basculerSelection(tx.id),
+                                onTap: () async {
+                                  if (_modeSelection) {
+                                    _basculerSelection(tx.id);
+                                    return;
+                                  }
+                                  await Navigator.of(context)
+                                      .push(MaterialPageRoute(
+                                    builder: (_) => TransactionDetailScreen(
+                                        transaction: tx),
+                                  ));
+                                  _charger();
+                                },
+                              );
+                            },
+                          ),
                         ),
                       ),
-                    ),
-        ),
-        if (_modeSelection) _barreSelection(),
-      ],
+          ),
+          if (_modeSelection) _barreSelection(),
+        ],
+      ),
     );
   }
 
@@ -174,7 +196,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return DecoratedBox(
       decoration: const BoxDecoration(
         gradient: AppGradients.primary,
-        boxShadow: [BoxShadow(color: Color(0x552A4C86), blurRadius: 12, offset: Offset(0, -2))],
+        boxShadow: [
+          BoxShadow(
+              color: Color(0x552A4C86), blurRadius: 12, offset: Offset(0, -2))
+        ],
       ),
       child: SafeArea(
         top: false,
@@ -190,14 +215,17 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: Text(
                   '${_selection.length} sélectionnée${_selection.length > 1 ? 's' : ''}',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w600),
                 ),
               ),
               TextButton.icon(
                 style: TextButton.styleFrom(foregroundColor: Colors.white),
                 onPressed: _changerCategorieSelection,
-                icon: const Icon(Icons.drive_file_move_outline, color: Colors.white),
-                label: const Text('Changer catégorie', style: TextStyle(color: Colors.white)),
+                icon: const Icon(Icons.drive_file_move_outline,
+                    color: Colors.white),
+                label: const Text('Changer catégorie',
+                    style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -211,7 +239,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: ChoiceChip(
-        label: Text(label, style: TextStyle(color: selectionne ? Colors.white : null)),
+        label: Text(label,
+            style: TextStyle(color: selectionne ? Colors.white : null)),
         selected: selectionne,
         onSelected: (_) => setState(() {
           _categorieFiltre = categorie;

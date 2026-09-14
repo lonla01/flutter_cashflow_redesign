@@ -6,12 +6,15 @@ const _uuid = Uuid();
 /// (base locale) ou comme String (Postgrest sérialise parfois `numeric`
 /// en JSON string). Utilisé par [MoneyTransaction.fromMap], réutilisé tel
 /// quel pour parser aussi bien une ligne locale qu'une ligne Supabase.
-double? _num(Object? value) => value == null ? null : num.parse(value.toString()).toDouble();
+double? _num(Object? value) =>
+    value == null ? null : num.parse(value.toString()).toDouble();
 
 double _numRequis(Object? value) => _num(value)!;
 
-/// Opérateur source de la transaction.
-enum TransactionSource { orangeMoney, mtnMomo }
+/// Opérateur source de la transaction. [manuel] couvre toute transaction
+/// saisie à la main (formulaire libre ou photo de reçu) plutôt que
+/// détectée dans un SMS d'opérateur — voir AddTransactionScreen.
+enum TransactionSource { orangeMoney, mtnMomo, manuel }
 
 /// Type de transaction reconnu par le moteur de parsing.
 enum TransactionType {
@@ -30,12 +33,21 @@ enum EditStatus { auto, editeManuellement }
 String sourceToString(TransactionSource s) => switch (s) {
       TransactionSource.orangeMoney => 'orange_money',
       TransactionSource.mtnMomo => 'mtn_momo',
+      TransactionSource.manuel => 'manuel',
     };
 
 TransactionSource sourceFromString(String s) => switch (s) {
       'orange_money' => TransactionSource.orangeMoney,
       'mtn_momo' => TransactionSource.mtnMomo,
+      'manuel' => TransactionSource.manuel,
       _ => throw ArgumentError('source inconnue: $s'),
+    };
+
+/// Libellé affiché à l'utilisateur (détail de transaction, export CSV/PDF).
+String sourceLabel(TransactionSource s) => switch (s) {
+      TransactionSource.orangeMoney => 'Orange Money',
+      TransactionSource.mtnMomo => 'MTN Mobile Money',
+      TransactionSource.manuel => 'Saisie manuelle',
     };
 
 String typeToString(TransactionType t) => switch (t) {
@@ -128,11 +140,13 @@ class MoneyTransaction {
         'id_transaction_operateur': idTransactionOperateur,
         'sms_brut': smsBrut,
         'notes': notes,
-        'statut_edition': statutEdition == EditStatus.auto ? 'auto' : 'edite_manuellement',
+        'statut_edition':
+            statutEdition == EditStatus.auto ? 'auto' : 'edite_manuellement',
         'derniere_modification': derniereModification.toIso8601String(),
       };
 
-  factory MoneyTransaction.fromMap(Map<String, Object?> map) => MoneyTransaction(
+  factory MoneyTransaction.fromMap(Map<String, Object?> map) =>
+      MoneyTransaction(
         id: map['id'] as String,
         source: sourceFromString(map['source'] as String),
         type: typeFromString(map['type'] as String),
@@ -147,9 +161,11 @@ class MoneyTransaction {
         idTransactionOperateur: map['id_transaction_operateur'] as String?,
         smsBrut: map['sms_brut'] as String?,
         notes: map['notes'] as String? ?? '',
-        statutEdition: (map['statut_edition'] as String?) == 'edite_manuellement'
-            ? EditStatus.editeManuellement
-            : EditStatus.auto,
-        derniereModification: DateTime.parse(map['derniere_modification'] as String),
+        statutEdition:
+            (map['statut_edition'] as String?) == 'edite_manuellement'
+                ? EditStatus.editeManuellement
+                : EditStatus.auto,
+        derniereModification:
+            DateTime.parse(map['derniere_modification'] as String),
       );
 }

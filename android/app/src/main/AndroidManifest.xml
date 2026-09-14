@@ -4,6 +4,10 @@
     <!-- Phase 2 : synchronisation cloud Supabase -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Phase 3 : photo de reçu pour la saisie manuelle assistée par IA
+         (voir lib/screens/add_transaction_screen.dart) -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <application
         android:label="mobile_money_tracker"
         android:name="${applicationName}"
