@@ -131,15 +131,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              IconButton(onPressed: () => _changerPeriode(-1), icon: const Icon(Icons.chevron_left)),
-              Expanded(
-                child: Text(periodeLabel, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold)),
-              ),
-              IconButton(onPressed: () => _changerPeriode(1), icon: const Icon(Icons.chevron_right)),
-            ],
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _flecheMois(Icons.chevron_left, () => _changerPeriode(-1)),
+                Text(
+                  _capitaliser(periodeLabel),
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.navy900,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                _flecheMois(Icons.chevron_right, () => _changerPeriode(1)),
+              ],
+            ),
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -200,19 +220,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     SizedBox(
                       height: 200,
-                      child: PieChart(
-                        PieChartData(
-                          sections: [
-                            for (var i = 0; i < parCategorie.length; i++)
-                              PieChartSectionData(
-                                value: parCategorie[i].total,
-                                title: '',
-                                color: _couleurs[i % _couleurs.length],
-                                radius: 70,
-                              ),
-                          ],
-                          sectionsSpace: 2,
-                        ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // fl_chart ne permet pas de dégradé pour
+                          // centerSpaceColor : on dessine le disque central
+                          // nous-mêmes, révélé par le trou transparent du
+                          // donut par-dessus.
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: AppGradients.primary,
+                            ),
+                          ),
+                          PieChart(
+                            PieChartData(
+                              centerSpaceRadius: 50,
+                              centerSpaceColor: Colors.transparent,
+                              sections: [
+                                for (var i = 0; i < parCategorie.length; i++)
+                                  PieChartSectionData(
+                                    value: parCategorie[i].total,
+                                    title: '',
+                                    color: _couleurs[i % _couleurs.length],
+                                    radius: 70,
+                                  ),
+                              ],
+                              sectionsSpace: 2,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -293,6 +332,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  String _capitaliser(String s) => s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+
+  Widget _flecheMois(IconData icon, VoidCallback onTap) {
+    return IconButton.filledTonal(
+      onPressed: onTap,
+      icon: Icon(icon),
+      style: IconButton.styleFrom(
+        backgroundColor: AppColors.navy700.withValues(alpha: 0.1),
+        foregroundColor: AppColors.navy700,
       ),
     );
   }

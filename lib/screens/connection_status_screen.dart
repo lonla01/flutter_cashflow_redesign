@@ -111,18 +111,24 @@ class ConnectionStatusScreen extends StatelessWidget {
     );
   }
 
+  // Colonne (label au-dessus, valeur en dessous) plutôt qu'une ligne
+  // label/valeur côte à côte : une valeur sans espaces (une URL) ne peut
+  // pas passer à la ligne au milieu d'un "mot", donc une disposition en
+  // ligne déborde. En colonne, toute la largeur de la carte est
+  // disponible, et l'ellipse reste un filet de sécurité pour une valeur
+  // vraiment trop longue.
   Widget _ligne(String label, String valeur) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(color: Colors.grey)),
-            Flexible(
-              child: Text(
-                valeur,
-                textAlign: TextAlign.right,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
+            Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 12.5)),
+            const SizedBox(height: 3),
+            Text(
+              valeur,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
