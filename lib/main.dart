@@ -11,6 +11,7 @@ import 'screens/connection_status_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'screens/settings_screen.dart';
 import 'services/auth_gate.dart';
 import 'services/sync_service.dart';
 import 'widgets/sync_status_badge.dart';
@@ -152,6 +153,13 @@ class _ShellPrincipalState extends State<_ShellPrincipal> {
               builder: (_) => ConnectionStatusScreen(syncService: widget.syncService),
             )),
             child: SyncStatusBadge(syncService: widget.syncService),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Réglages',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const SettingsScreen(),
+            )),
           ),
         ],
       ),

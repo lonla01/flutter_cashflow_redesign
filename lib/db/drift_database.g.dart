@@ -1055,6 +1055,187 @@ class CategoryRulesCompanion extends UpdateCompanion<CategoryRuleRow> {
   }
 }
 
+class $CategoriesTable extends Categories
+    with TableInfo<$CategoriesTable, CategoryRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CategoriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _nomMeta = const VerificationMeta('nom');
+  @override
+  late final GeneratedColumn<String> nom = GeneratedColumn<String>(
+      'nom', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [id, nom];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'categories';
+  @override
+  VerificationContext validateIntegrity(Insertable<CategoryRow> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('nom')) {
+      context.handle(
+          _nomMeta, nom.isAcceptableOrUnknown(data['nom']!, _nomMeta));
+    } else if (isInserting) {
+      context.missing(_nomMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+        {nom},
+      ];
+  @override
+  CategoryRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CategoryRow(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      nom: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}nom'])!,
+    );
+  }
+
+  @override
+  $CategoriesTable createAlias(String alias) {
+    return $CategoriesTable(attachedDatabase, alias);
+  }
+}
+
+class CategoryRow extends DataClass implements Insertable<CategoryRow> {
+  final int id;
+  final String nom;
+  const CategoryRow({required this.id, required this.nom});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['nom'] = Variable<String>(nom);
+    return map;
+  }
+
+  CategoriesCompanion toCompanion(bool nullToAbsent) {
+    return CategoriesCompanion(
+      id: Value(id),
+      nom: Value(nom),
+    );
+  }
+
+  factory CategoryRow.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CategoryRow(
+      id: serializer.fromJson<int>(json['id']),
+      nom: serializer.fromJson<String>(json['nom']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'nom': serializer.toJson<String>(nom),
+    };
+  }
+
+  CategoryRow copyWith({int? id, String? nom}) => CategoryRow(
+        id: id ?? this.id,
+        nom: nom ?? this.nom,
+      );
+  CategoryRow copyWithCompanion(CategoriesCompanion data) {
+    return CategoryRow(
+      id: data.id.present ? data.id.value : this.id,
+      nom: data.nom.present ? data.nom.value : this.nom,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CategoryRow(')
+          ..write('id: $id, ')
+          ..write('nom: $nom')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, nom);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CategoryRow && other.id == this.id && other.nom == this.nom);
+}
+
+class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
+  final Value<int> id;
+  final Value<String> nom;
+  const CategoriesCompanion({
+    this.id = const Value.absent(),
+    this.nom = const Value.absent(),
+  });
+  CategoriesCompanion.insert({
+    this.id = const Value.absent(),
+    required String nom,
+  }) : nom = Value(nom);
+  static Insertable<CategoryRow> custom({
+    Expression<int>? id,
+    Expression<String>? nom,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (nom != null) 'nom': nom,
+    });
+  }
+
+  CategoriesCompanion copyWith({Value<int>? id, Value<String>? nom}) {
+    return CategoriesCompanion(
+      id: id ?? this.id,
+      nom: nom ?? this.nom,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (nom.present) {
+      map['nom'] = Variable<String>(nom.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CategoriesCompanion(')
+          ..write('id: $id, ')
+          ..write('nom: $nom')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $SyncQueueEntriesTable extends SyncQueueEntries
     with TableInfo<$SyncQueueEntriesTable, SyncQueueEntryRow> {
   @override
@@ -2066,6 +2247,7 @@ abstract class _$AppDatabaseDrift extends GeneratedDatabase {
   $AppDatabaseDriftManager get managers => $AppDatabaseDriftManager(this);
   late final $TransactionsTable transactions = $TransactionsTable(this);
   late final $CategoryRulesTable categoryRules = $CategoryRulesTable(this);
+  late final $CategoriesTable categories = $CategoriesTable(this);
   late final $SyncQueueEntriesTable syncQueueEntries =
       $SyncQueueEntriesTable(this);
   late final $ConflictHistoryEntriesTable conflictHistoryEntries =
@@ -2078,6 +2260,7 @@ abstract class _$AppDatabaseDrift extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
         transactions,
         categoryRules,
+        categories,
         syncQueueEntries,
         conflictHistoryEntries,
         syncMetaTable
@@ -2591,6 +2774,130 @@ typedef $$CategoryRulesTableProcessedTableManager = ProcessedTableManager<
       BaseReferences<_$AppDatabaseDrift, $CategoryRulesTable, CategoryRuleRow>
     ),
     CategoryRuleRow,
+    PrefetchHooks Function()>;
+typedef $$CategoriesTableCreateCompanionBuilder = CategoriesCompanion Function({
+  Value<int> id,
+  required String nom,
+});
+typedef $$CategoriesTableUpdateCompanionBuilder = CategoriesCompanion Function({
+  Value<int> id,
+  Value<String> nom,
+});
+
+class $$CategoriesTableFilterComposer
+    extends Composer<_$AppDatabaseDrift, $CategoriesTable> {
+  $$CategoriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get nom => $composableBuilder(
+      column: $table.nom, builder: (column) => ColumnFilters(column));
+}
+
+class $$CategoriesTableOrderingComposer
+    extends Composer<_$AppDatabaseDrift, $CategoriesTable> {
+  $$CategoriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get nom => $composableBuilder(
+      column: $table.nom, builder: (column) => ColumnOrderings(column));
+}
+
+class $$CategoriesTableAnnotationComposer
+    extends Composer<_$AppDatabaseDrift, $CategoriesTable> {
+  $$CategoriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get nom =>
+      $composableBuilder(column: $table.nom, builder: (column) => column);
+}
+
+class $$CategoriesTableTableManager extends RootTableManager<
+    _$AppDatabaseDrift,
+    $CategoriesTable,
+    CategoryRow,
+    $$CategoriesTableFilterComposer,
+    $$CategoriesTableOrderingComposer,
+    $$CategoriesTableAnnotationComposer,
+    $$CategoriesTableCreateCompanionBuilder,
+    $$CategoriesTableUpdateCompanionBuilder,
+    (
+      CategoryRow,
+      BaseReferences<_$AppDatabaseDrift, $CategoriesTable, CategoryRow>
+    ),
+    CategoryRow,
+    PrefetchHooks Function()> {
+  $$CategoriesTableTableManager(_$AppDatabaseDrift db, $CategoriesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CategoriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CategoriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CategoriesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> nom = const Value.absent(),
+          }) =>
+              CategoriesCompanion(
+            id: id,
+            nom: nom,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String nom,
+          }) =>
+              CategoriesCompanion.insert(
+            id: id,
+            nom: nom,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable<$CategoriesTable, CategoryRow>(table),
+                    BaseReferences<_$AppDatabaseDrift, $CategoriesTable,
+                        CategoryRow>(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$CategoriesTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabaseDrift,
+    $CategoriesTable,
+    CategoryRow,
+    $$CategoriesTableFilterComposer,
+    $$CategoriesTableOrderingComposer,
+    $$CategoriesTableAnnotationComposer,
+    $$CategoriesTableCreateCompanionBuilder,
+    $$CategoriesTableUpdateCompanionBuilder,
+    (
+      CategoryRow,
+      BaseReferences<_$AppDatabaseDrift, $CategoriesTable, CategoryRow>
+    ),
+    CategoryRow,
     PrefetchHooks Function()>;
 typedef $$SyncQueueEntriesTableCreateCompanionBuilder
     = SyncQueueEntriesCompanion Function({
@@ -3166,6 +3473,8 @@ class $AppDatabaseDriftManager {
       $$TransactionsTableTableManager(_db, _db.transactions);
   $$CategoryRulesTableTableManager get categoryRules =>
       $$CategoryRulesTableTableManager(_db, _db.categoryRules);
+  $$CategoriesTableTableManager get categories =>
+      $$CategoriesTableTableManager(_db, _db.categories);
   $$SyncQueueEntriesTableTableManager get syncQueueEntries =>
       $$SyncQueueEntriesTableTableManager(_db, _db.syncQueueEntries);
   $$ConflictHistoryEntriesTableTableManager get conflictHistoryEntries =>

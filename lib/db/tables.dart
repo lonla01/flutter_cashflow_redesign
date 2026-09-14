@@ -36,6 +36,23 @@ class CategoryRules extends Table {
   TextColumn get categorie => text()();
 }
 
+/// Catégories proposées à l'utilisateur (écran Réglages > Catégories).
+/// Seedée avec [categoriesParDefaut] à la création de la base ; purement
+/// une liste de choix pour la saisie, jamais synchronisée vers Supabase
+/// (même raisonnement que [CategoryRules]) : le champ `categorie` d'une
+/// transaction reste une simple chaîne libre, donc supprimer une catégorie
+/// d'ici ne modifie jamais les transactions qui l'utilisent déjà.
+@DataClassName('CategoryRow')
+class Categories extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get nom => text()();
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+        {nom}
+      ];
+}
+
 /// File d'attente de synchronisation : une entrée par écriture locale
 /// (nouvelle transaction ou édition) en attente de propagation vers
 /// Supabase. Voir [lib/services/sync_service.dart].

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../db/app_database.dart';
-import '../models/category_rule.dart';
 import '../models/transaction.dart';
 import '../services/categorization_service.dart';
 
@@ -89,16 +88,26 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
           ),
           const SizedBox(height: 16),
 
-          DropdownButtonFormField<String>(
-            initialValue: _categorie,
-            decoration: const InputDecoration(
-              labelText: 'Catégorie',
-              border: OutlineInputBorder(),
-            ),
-            items: categoriesParDefaut
-                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                .toList(),
-            onChanged: (v) => setState(() => _categorie = v ?? _categorie),
+          StreamBuilder<List<String>>(
+            stream: AppDatabase.instance.watchCategories(),
+            builder: (context, snapshot) {
+              // La catégorie actuelle de la transaction peut avoir été
+              // retirée entre-temps de l'écran Réglages > Catégories : on
+              // l'inclut toujours dans les choix, sinon DropdownButtonFormField
+              // lève une erreur (valeur sélectionnée absente des items).
+              final categories = {_categorie, ...?snapshot.data}.toList()..sort();
+              return DropdownButtonFormField<String>(
+                initialValue: _categorie,
+                decoration: const InputDecoration(
+                  labelText: 'Catégorie',
+                  border: OutlineInputBorder(),
+                ),
+                items: categories
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                    .toList(),
+                onChanged: (v) => setState(() => _categorie = v ?? _categorie),
+              );
+            },
           ),
           const SizedBox(height: 16),
 

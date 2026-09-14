@@ -6,8 +6,18 @@ import '../models/transaction.dart';
 class TransactionTile extends StatelessWidget {
   final MoneyTransaction transaction;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final bool modeSelection;
+  final bool selectionnee;
 
-  const TransactionTile({super.key, required this.transaction, required this.onTap});
+  const TransactionTile({
+    super.key,
+    required this.transaction,
+    required this.onTap,
+    required this.onLongPress,
+    this.modeSelection = false,
+    this.selectionnee = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -18,13 +28,17 @@ class TransactionTile extends StatelessWidget {
 
     return ListTile(
       onTap: onTap,
-      leading: CircleAvatar(
-        backgroundColor: couleur.withValues(alpha: 0.15),
-        child: Icon(
-          estEntree ? Icons.arrow_downward : Icons.arrow_upward,
-          color: couleur,
-        ),
-      ),
+      onLongPress: onLongPress,
+      selected: selectionnee,
+      leading: modeSelection
+          ? Checkbox(value: selectionnee, onChanged: (_) => onTap())
+          : CircleAvatar(
+              backgroundColor: couleur.withValues(alpha: 0.15),
+              child: Icon(
+                estEntree ? Icons.arrow_downward : Icons.arrow_upward,
+                color: couleur,
+              ),
+            ),
       title: Text(transaction.contactNom ?? 'Contact inconnu'),
       subtitle: Text('${transaction.categorie} · $dateFmt'),
       trailing: Column(

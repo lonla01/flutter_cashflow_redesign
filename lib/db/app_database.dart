@@ -57,6 +57,7 @@ class AppDatabase {
   final List<Map<String, Object?>> _memTransactions = [];
   final List<Map<String, Object?>> _memCategoryRules = [];
   int _memCategoryRuleNextId = 1;
+  final List<String> _memCategories = List.of(categoriesParDefaut);
 
   // ---------------------------------------------------------------------
   // Transactions
@@ -148,20 +149,57 @@ class AppDatabase {
         query.where((t) => t.contactNom.equals(nom!));
       }
       final rows = await query.get();
+      return _reassignerCategoriePourLignes(rows, nouvelleCategorie);
+    });
+  }
 
+  /// Réassigne [nouvelleCategorie] à un ensemble de transactions choisies
+  /// manuellement par l'utilisateur (sélection multiple dans la liste),
+  /// par opposition à [reassignSimilarTransactions] qui déduit la
+  /// similarité automatiquement. Retourne le nombre de transactions
+  /// effectivement modifiées.
+  Future<int> bulkSetCategory(List<String> ids, String nouvelleCategorie) async {
+    if (ids.isEmpty) return 0;
+
+    if (kIsWeb) {
       var count = 0;
-      for (final row in rows) {
-        if (row.categorie == nouvelleCategorie) continue;
-        final similaire = _modelFromRow(row)
-          ..categorie = nouvelleCategorie
-          ..derniereModification = DateTime.now();
-        await (_db.update(_db.transactions)..where((t) => t.id.equals(row.id)))
-            .write(_companionFromModel(similaire));
-        await _enqueueSync(similaire);
-        count++;
+      for (final row in _memTransactions) {
+        if (ids.contains(row['id']) && row['categorie'] != nouvelleCategorie) {
+          row['categorie'] = nouvelleCategorie;
+          row['derniere_modification'] = DateTime.now().toIso8601String();
+          count++;
+        }
       }
       return count;
+    }
+
+    return _db.transaction(() async {
+      final rows =
+          await (_db.select(_db.transactions)..where((t) => t.id.isIn(ids))).get();
+      return _reassignerCategoriePourLignes(rows, nouvelleCategorie);
     });
+  }
+
+  /// Applique [nouvelleCategorie] à chaque ligne (hors web), en passant par
+  /// le même chemin que [updateTransaction] (écriture + entrée
+  /// `sync_queue`). Facteur commun de [reassignSimilarTransactions] et
+  /// [bulkSetCategory].
+  Future<int> _reassignerCategoriePourLignes(
+    List<TransactionRow> rows,
+    String nouvelleCategorie,
+  ) async {
+    var count = 0;
+    for (final row in rows) {
+      if (row.categorie == nouvelleCategorie) continue;
+      final modifiee = _modelFromRow(row)
+        ..categorie = nouvelleCategorie
+        ..derniereModification = DateTime.now();
+      await (_db.update(_db.transactions)..where((t) => t.id.equals(row.id)))
+          .write(_companionFromModel(modifiee));
+      await _enqueueSync(modifiee);
+      count++;
+    }
+    return count;
   }
 
   Future<List<MoneyTransaction>> getAllTransactions({
@@ -268,6 +306,52 @@ class AppDatabase {
               categorie: r.categorie,
             ))
         .toList();
+  }
+
+  // ---------------------------------------------------------------------
+  // Catégories (écran Réglages) — jamais synchronisées vers Supabase, même
+  // raisonnement que les règles de catégorisation ci-dessus.
+  // ---------------------------------------------------------------------
+
+  Stream<List<String>> watchCategories() {
+    if (kIsWeb) {
+      // Pas de vrai stream réactif en mémoire : un seul instantané, suffisant
+      // pour l'usage web (itération UI uniquement, voir commentaire en tête
+      // de fichier).
+      return Stream.value(List.unmodifiable(_memCategories));
+    }
+    return (_db.select(_db.categories)..orderBy([(c) => OrderingTerm.asc(c.nom)]))
+        .watch()
+        .map((rows) => rows.map((r) => r.nom).toList());
+  }
+
+  /// Ajoute une catégorie si elle n'existe pas déjà (comparaison insensible
+  /// à la casse). Ne lève pas d'erreur en cas de doublon : silencieusement
+  /// ignoré, pour que l'écran de gestion reste simple (pas de validation
+  /// réseau-like à afficher).
+  Future<void> addCategory(String nom) async {
+    final valeur = nom.trim();
+    if (valeur.isEmpty) return;
+
+    if (kIsWeb) {
+      final existe = _memCategories.any((c) => c.toLowerCase() == valeur.toLowerCase());
+      if (!existe) _memCategories.add(valeur);
+      return;
+    }
+
+    final existe = await (_db.select(_db.categories)
+          ..where((c) => c.nom.lower().equals(valeur.toLowerCase())))
+        .getSingleOrNull();
+    if (existe != null) return;
+    await _db.into(_db.categories).insert(CategoriesCompanion.insert(nom: valeur));
+  }
+
+  Future<void> removeCategory(String nom) async {
+    if (kIsWeb) {
+      _memCategories.removeWhere((c) => c == nom);
+      return;
+    }
+    await (_db.delete(_db.categories)..where((c) => c.nom.equals(nom))).go();
   }
 
   // ---------------------------------------------------------------------

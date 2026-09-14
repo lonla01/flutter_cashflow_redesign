@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../db/app_database.dart';
-import '../models/category_rule.dart';
 import '../models/transaction.dart';
 import '../widgets/transaction_tile.dart';
 import 'transaction_detail_screen.dart';
@@ -19,11 +18,49 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _categorieFiltre;
   String _recherche = '';
   bool _chargement = true;
+  final Set<String> _selection = {};
+
+  bool get _modeSelection => _selection.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
     _charger();
+  }
+
+  void _basculerSelection(String id) {
+    setState(() {
+      if (!_selection.remove(id)) _selection.add(id);
+    });
+  }
+
+  void _annulerSelection() => setState(_selection.clear);
+
+  Future<void> _changerCategorieSelection() async {
+    final categories = await AppDatabase.instance.watchCategories().first;
+    if (!mounted) return;
+    final choix = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Déplacer vers...'),
+        children: categories
+            .map((c) => SimpleDialogOption(
+                  onPressed: () => Navigator.of(context).pop(c),
+                  child: Text(c),
+                ))
+            .toList(),
+      ),
+    );
+    if (choix == null) return;
+
+    final ids = _selection.toList();
+    final nb = await AppDatabase.instance.bulkSetCategory(ids, choix);
+    _annulerSelection();
+    await _charger();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$nb transaction${nb > 1 ? 's' : ''} déplacée${nb > 1 ? 's' : ''} vers "$choix".')),
+    );
   }
 
   Future<void> _charger() async {
@@ -66,13 +103,19 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         SizedBox(
           height: 44,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            children: [
-              _chipCategorie(null, 'Toutes'),
-              ...categoriesParDefaut.map((c) => _chipCategorie(c, c)),
-            ],
+          child: StreamBuilder<List<String>>(
+            stream: AppDatabase.instance.watchCategories(),
+            builder: (context, snapshot) {
+              final categories = snapshot.data ?? const [];
+              return ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                children: [
+                  _chipCategorie(null, 'Toutes'),
+                  ...categories.map((c) => _chipCategorie(c, c)),
+                ],
+              );
+            },
           ),
         ),
         const Divider(height: 1),
@@ -90,7 +133,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           final tx = _filtrees[index];
                           return TransactionTile(
                             transaction: tx,
+                            modeSelection: _modeSelection,
+                            selectionnee: _selection.contains(tx.id),
+                            onLongPress: () => _basculerSelection(tx.id),
                             onTap: () async {
+                              if (_modeSelection) {
+                                _basculerSelection(tx.id);
+                                return;
+                              }
                               await Navigator.of(context).push(MaterialPageRoute(
                                 builder: (_) => TransactionDetailScreen(transaction: tx),
                               ));
@@ -101,7 +151,37 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
         ),
+        if (_modeSelection) _barreSelection(),
       ],
+    );
+  }
+
+  Widget _barreSelection() {
+    return Material(
+      elevation: 4,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.close),
+                tooltip: 'Annuler la sélection',
+                onPressed: _annulerSelection,
+              ),
+              Expanded(
+                child: Text('${_selection.length} sélectionnée${_selection.length > 1 ? 's' : ''}'),
+              ),
+              FilledButton.icon(
+                onPressed: _changerCategorieSelection,
+                icon: const Icon(Icons.drive_file_move_outline),
+                label: const Text('Changer catégorie'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
