@@ -12,23 +12,12 @@ class ContactTotal {
   ContactTotal(this.contact, this.total);
 }
 
-enum Periode { semaine, mois }
-
 class ReportService {
-  /// Renvoie le début de la période courante contenant [reference] selon
-  /// [periode] (lundi pour la semaine, 1er du mois pour le mois).
-  static DateTime debutPeriode(DateTime reference, Periode periode) {
-    if (periode == Periode.semaine) {
-      final lundi = reference.subtract(Duration(days: reference.weekday - 1));
-      return DateTime(lundi.year, lundi.month, lundi.day);
-    }
-    return DateTime(reference.year, reference.month, 1);
-  }
+  /// Renvoie le 1er jour du mois contenant [reference].
+  static DateTime debutPeriode(DateTime reference) =>
+      DateTime(reference.year, reference.month, 1);
 
-  static DateTime finPeriode(DateTime debut, Periode periode) {
-    if (periode == Periode.semaine) {
-      return debut.add(const Duration(days: 7)).subtract(const Duration(milliseconds: 1));
-    }
+  static DateTime finPeriode(DateTime debut) {
     final moisSuivant = debut.month == 12
         ? DateTime(debut.year + 1, 1, 1)
         : DateTime(debut.year, debut.month + 1, 1);

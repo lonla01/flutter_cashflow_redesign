@@ -15,10 +15,11 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  Periode _periode = Periode.semaine;
   DateTime _reference = DateTime.now();
   List<MoneyTransaction> _toutes = [];
   bool _chargement = true;
+  // null = aucun filtre (toutes les catégories du mois sont incluses).
+  Set<String>? _categoriesFiltre;
 
   static const _couleurs = [
     Colors.blue, Colors.orange, Colors.green, Colors.red, Colors.purple,
@@ -42,9 +43,70 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _changerPeriode(int delta) {
     setState(() {
-      _reference = _periode == Periode.semaine
-          ? _reference.add(Duration(days: 7 * delta))
-          : DateTime(_reference.year, _reference.month + delta, 1);
+      _reference = DateTime(_reference.year, _reference.month + delta, 1);
+      // Un filtre construit pour un mois n'a pas vocation à survivre au
+      // changement de mois : les catégories présentes peuvent être
+      // différentes d'un mois à l'autre.
+      _categoriesFiltre = null;
+    });
+  }
+
+  /// Ouvre le sélecteur de catégories à inclure dans le rapport du mois
+  /// affiché. [categoriesDuMois] est la liste complète des catégories
+  /// présentes ce mois-ci, indépendamment du filtre déjà appliqué (pour
+  /// pouvoir toujours réintégrer une catégorie précédemment décochée).
+  Future<void> _filtrerCategories(List<String> categoriesDuMois) async {
+    final selection = Set<String>.of(_categoriesFiltre ?? categoriesDuMois);
+
+    final resultat = await showDialog<Set<String>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Catégories à inclure'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: categoriesDuMois
+                  .map((c) => CheckboxListTile(
+                        value: selection.contains(c),
+                        title: Text(c),
+                        onChanged: (coche) => setDialogState(() {
+                          if (coche == true) {
+                            selection.add(c);
+                          } else {
+                            selection.remove(c);
+                          }
+                        }),
+                      ))
+                  .toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => setDialogState(() => selection
+                ..clear()
+                ..addAll(categoriesDuMois)),
+              child: const Text('Tout sélectionner'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(selection),
+              child: const Text('Appliquer'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (resultat == null) return;
+
+    setState(() {
+      // Tout sélectionné revient à "pas de filtre", pour rester cohérent
+      // si le mois affiché change ensuite.
+      _categoriesFiltre = resultat.length == categoriesDuMois.length ? null : resultat;
     });
   }
 
@@ -52,40 +114,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     if (_chargement) return const Center(child: CircularProgressIndicator());
 
-    final debut = ReportService.debutPeriode(_reference, _periode);
-    final fin = ReportService.finPeriode(debut, _periode);
-    final transactions = ReportService.filtrerParPeriode(_toutes, debut, fin);
+    final debut = ReportService.debutPeriode(_reference);
+    final fin = ReportService.finPeriode(debut);
+    final transactionsDuMois = ReportService.filtrerParPeriode(_toutes, debut, fin);
+    final categoriesDuMois = transactionsDuMois.map((t) => t.categorie).toSet().toList()..sort();
+    final transactions = _categoriesFiltre == null
+        ? transactionsDuMois
+        : transactionsDuMois.where((t) => _categoriesFiltre!.contains(t.categorie)).toList();
     final parCategorie = ReportService.totauxParCategorie(transactions);
     final parContact = ReportService.totauxParContact(transactions);
     final totalDepenses = ReportService.totalDepenses(transactions);
     final totalEntrees = ReportService.totalEntrees(transactions);
     final montantFmt = NumberFormat('#,##0', 'fr_FR');
-    final periodeLabel = _periode == Periode.semaine
-        ? 'Semaine du ${DateFormat('dd/MM').format(debut)} au ${DateFormat('dd/MM').format(fin)}'
-        : DateFormat('MMMM yyyy', 'fr_FR').format(debut);
+    final periodeLabel = DateFormat('MMMM yyyy', 'fr_FR').format(debut);
 
     return RefreshIndicator(
       onRefresh: _charger,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ToggleButtons(
-                isSelected: [_periode == Periode.semaine, _periode == Periode.mois],
-                onPressed: (i) => setState(() {
-                  _periode = i == 0 ? Periode.semaine : Periode.mois;
-                  _reference = DateTime.now();
-                }),
-                children: const [
-                  Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Semaine')),
-                  Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Mois')),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -94,6 +141,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Text(periodeLabel, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
               IconButton(onPressed: () => _changerPeriode(1), icon: const Icon(Icons.chevron_right)),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_categoriesFiltre != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: InputChip(
+                    label: Text('${_categoriesFiltre!.length}/${categoriesDuMois.length} catégories'),
+                    onDeleted: () => setState(() => _categoriesFiltre = null),
+                  ),
+                ),
+              TextButton.icon(
+                onPressed: categoriesDuMois.isEmpty ? null : () => _filtrerCategories(categoriesDuMois),
+                icon: const Icon(Icons.filter_alt_outlined),
+                label: const Text('Filtrer les catégories'),
+              ),
             ],
           ),
           const SizedBox(height: 16),

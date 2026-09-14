@@ -19,6 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _recherche = '';
   bool _chargement = true;
   final Set<String> _selection = {};
+  final ScrollController _scrollController = ScrollController();
 
   bool get _modeSelection => _selection.isNotEmpty;
 
@@ -26,6 +27,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _charger();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _basculerSelection(String id) {
@@ -124,30 +131,36 @@ class _HomeScreenState extends State<HomeScreen> {
               ? const Center(child: CircularProgressIndicator())
               : _filtrees.isEmpty
                   ? const Center(child: Text('Aucune transaction pour ce filtre.'))
-                  : RefreshIndicator(
-                      onRefresh: _charger,
-                      child: ListView.separated(
-                        itemCount: _filtrees.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final tx = _filtrees[index];
-                          return TransactionTile(
-                            transaction: tx,
-                            modeSelection: _modeSelection,
-                            selectionnee: _selection.contains(tx.id),
-                            onLongPress: () => _basculerSelection(tx.id),
-                            onTap: () async {
-                              if (_modeSelection) {
-                                _basculerSelection(tx.id);
-                                return;
-                              }
-                              await Navigator.of(context).push(MaterialPageRoute(
-                                builder: (_) => TransactionDetailScreen(transaction: tx),
-                              ));
-                              _charger();
-                            },
-                          );
-                        },
+                  : Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      trackVisibility: true,
+                      child: RefreshIndicator(
+                        onRefresh: _charger,
+                        child: ListView.separated(
+                          controller: _scrollController,
+                          itemCount: _filtrees.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final tx = _filtrees[index];
+                            return TransactionTile(
+                              transaction: tx,
+                              modeSelection: _modeSelection,
+                              selectionnee: _selection.contains(tx.id),
+                              onLongPress: () => _basculerSelection(tx.id),
+                              onTap: () async {
+                                if (_modeSelection) {
+                                  _basculerSelection(tx.id);
+                                  return;
+                                }
+                                await Navigator.of(context).push(MaterialPageRoute(
+                                  builder: (_) => TransactionDetailScreen(transaction: tx),
+                                ));
+                                _charger();
+                              },
+                            );
+                          },
+                        ),
                       ),
                     ),
         ),

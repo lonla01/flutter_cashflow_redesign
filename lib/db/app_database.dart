@@ -308,6 +308,46 @@ class AppDatabase {
         .toList();
   }
 
+  /// Noms de contact distincts sur l'ensemble des transactions (triés),
+  /// pour l'écran Réglages > Contacts qui permet d'associer un contact à
+  /// une catégorie une bonne fois pour toutes.
+  Future<List<String>> getUniqueContactNames() async {
+    final transactions = await getAllTransactions();
+    final noms = transactions
+        .map((t) => t.contactNom?.trim())
+        .whereType<String>()
+        .where((n) => n.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    return noms;
+  }
+
+  /// Associe un contact (nom exact) à une catégorie : mémorise la règle
+  /// pour la catégorisation automatique des futures transactions de ce
+  /// contact (voir CategorizationService.suggestCategory) ET réassigne
+  /// immédiatement toutes ses transactions déjà existantes. Retourne le
+  /// nombre de transactions existantes modifiées.
+  Future<int> associateContactWithCategory(String nom, String categorie) async {
+    await upsertCategoryRule(CategoryRule(
+      matchType: 'contact_nom_contains',
+      matchValue: nom,
+      categorie: categorie,
+    ));
+
+    if (kIsWeb) {
+      final ids = _memTransactions
+          .where((row) => row['contact_nom'] == nom)
+          .map((row) => row['id'] as String)
+          .toList();
+      return bulkSetCategory(ids, categorie);
+    }
+
+    final rows =
+        await (_db.select(_db.transactions)..where((t) => t.contactNom.equals(nom))).get();
+    return bulkSetCategory(rows.map((r) => r.id).toList(), categorie);
+  }
+
   // ---------------------------------------------------------------------
   // Catégories (écran Réglages) — jamais synchronisées vers Supabase, même
   // raisonnement que les règles de catégorisation ci-dessus.

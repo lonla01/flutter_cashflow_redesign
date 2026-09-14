@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'category_management_screen.dart';
+import 'contact_category_screen.dart';
 
 /// Écran Réglages : point d'entrée unique pour tous les réglages de l'app.
 /// Volontairement structuré comme une liste d'entrées plutôt qu'un seul
@@ -21,6 +22,15 @@ class SettingsScreen extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => const CategoryManagementScreen(),
+            )),
+          ),
+          ListTile(
+            leading: const Icon(Icons.contacts_outlined),
+            title: const Text('Contacts'),
+            subtitle: const Text('Associer un contact à une catégorie'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const ContactCategoryScreen(),
             )),
           ),
         ],

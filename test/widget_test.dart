@@ -5,6 +5,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:mobile_money_tracker/db/app_database.dart';
 import 'package:mobile_money_tracker/main.dart';
@@ -43,6 +44,14 @@ class _CountingSyncService extends SyncService {
 
 void main() {
   final defaultSyncServiceBuilder = SyncServiceFactory.builder;
+
+  // DashboardScreen (affiché en permanence dans l'IndexedStack de
+  // _ShellPrincipal, même hors de l'onglet actif) formate le mois en
+  // fr_FR ; sans cette initialisation (faite par main() dans l'app réelle),
+  // intl lève LocaleDataException dès que l'écran principal est construit.
+  setUpAll(() async {
+    await initializeDateFormatting('fr_FR', null);
+  });
 
   setUp(() {
     AppDatabase.instance = AppDatabase.withExecutor(NativeDatabase.memory());
