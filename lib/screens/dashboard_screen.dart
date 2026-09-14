@@ -6,6 +6,7 @@ import '../db/app_database.dart';
 import '../models/transaction.dart';
 import '../services/export_service.dart';
 import '../services/report_service.dart';
+import '../theme/app_theme.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -21,10 +22,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // null = aucun filtre (toutes les catégories du mois sont incluses).
   Set<String>? _categoriesFiltre;
 
-  static const _couleurs = [
-    Colors.blue, Colors.orange, Colors.green, Colors.red, Colors.purple,
-    Colors.teal, Colors.brown, Colors.pink, Colors.indigo, Colors.amber,
-  ];
+  static const _couleurs = categoryChartColors;
 
   @override
   void initState() {
@@ -163,16 +161,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 16),
 
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _totalCard('Dépensé', totalDepenses, Colors.red.shade700, montantFmt),
-                  _totalCard('Reçu', totalEntrees, Colors.green.shade700, montantFmt),
-                ],
-              ),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: AppGradients.primary,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.navy700.withValues(alpha: 0.3),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _totalCard('Dépensé', totalDepenses, Icons.arrow_upward, Colors.redAccent.shade100, montantFmt),
+                Container(width: 1, height: 40, color: Colors.white24),
+                _totalCard('Reçu', totalEntrees, Icons.arrow_downward, Colors.greenAccent.shade100, montantFmt),
+              ],
             ),
           ),
           const SizedBox(height: 24),
@@ -183,44 +191,71 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Center(child: Text('Aucune dépense sur cette période.')),
             )
           else ...[
-            const Text('Répartition par catégorie', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text('Répartition par catégorie', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 200,
-              child: PieChart(
-                PieChartData(
-                  sections: [
-                    for (var i = 0; i < parCategorie.length; i++)
-                      PieChartSectionData(
-                        value: parCategorie[i].total,
-                        title: '',
-                        color: _couleurs[i % _couleurs.length],
-                        radius: 70,
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      height: 200,
+                      child: PieChart(
+                        PieChartData(
+                          sections: [
+                            for (var i = 0; i < parCategorie.length; i++)
+                              PieChartSectionData(
+                                value: parCategorie[i].total,
+                                title: '',
+                                color: _couleurs[i % _couleurs.length],
+                                radius: 70,
+                              ),
+                          ],
+                          sectionsSpace: 2,
+                        ),
                       ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...List.generate(parCategorie.length, (i) {
+                      final c = parCategorie[i];
+                      return ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(radius: 8, backgroundColor: _couleurs[i % _couleurs.length]),
+                        title: Text(c.categorie, style: const TextStyle(fontWeight: FontWeight.w500)),
+                        trailing: Text(
+                          '${montantFmt.format(c.total)} FCFA',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      );
+                    }),
                   ],
-                  sectionsSpace: 2,
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            ...List.generate(parCategorie.length, (i) {
-              final c = parCategorie[i];
-              return ListTile(
-                dense: true,
-                leading: CircleAvatar(radius: 8, backgroundColor: _couleurs[i % _couleurs.length]),
-                title: Text(c.categorie),
-                trailing: Text('${montantFmt.format(c.total)} FCFA'),
-              );
-            }),
             const SizedBox(height: 24),
 
-            const Text('Par contact / destinataire', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text('Par contact / destinataire', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
-            ...parContact.take(10).map((c) => ListTile(
-                  dense: true,
-                  title: Text(c.contact),
-                  trailing: Text('${montantFmt.format(c.total)} FCFA'),
-                )),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Column(
+                  children: parContact
+                      .take(10)
+                      .map((c) => ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(c.contact, style: const TextStyle(fontWeight: FontWeight.w500)),
+                            trailing: Text(
+                              '${montantFmt.format(c.total)} FCFA',
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ))
+                      .toList(),
+                ),
+              ),
+            ),
           ],
           const SizedBox(height: 24),
 
@@ -262,12 +297,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _totalCard(String label, double montant, Color couleur, NumberFormat fmt) {
+  Widget _totalCard(String label, double montant, IconData icon, Color accent, NumberFormat fmt) {
     return Column(
       children: [
-        Text(label, style: const TextStyle(color: Colors.grey)),
-        const SizedBox(height: 4),
-        Text('${fmt.format(montant)} FCFA', style: TextStyle(color: couleur, fontWeight: FontWeight.bold, fontSize: 18)),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: accent),
+            const SizedBox(width: 4),
+            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '${fmt.format(montant)} FCFA',
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
+        ),
       ],
     );
   }

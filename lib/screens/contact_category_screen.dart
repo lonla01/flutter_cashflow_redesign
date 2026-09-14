@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../db/app_database.dart';
+import '../theme/app_theme.dart';
+import '../widgets/gradient_app_bar.dart';
 
 /// Réglages > Contacts : associe un contact (nom exact) à une catégorie de
 /// façon durable. L'association réassigne immédiatement toutes les
@@ -74,22 +76,52 @@ class _ContactCategoryScreenState extends State<ContactCategoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Contacts')),
+      appBar: const GradientAppBar(title: 'Contacts'),
       body: _chargement
           ? const Center(child: CircularProgressIndicator())
           : _contacts.isEmpty
               ? const Center(child: Text('Aucun contact dans les transactions.'))
               : ListView.separated(
+                  padding: const EdgeInsets.all(16),
                   itemCount: _contacts.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
                     final contact = _contacts[index];
                     final categorie = _categorieParContact[contact.toLowerCase()];
-                    return ListTile(
-                      title: Text(contact),
-                      subtitle: Text(categorie ?? 'Aucune catégorie associée'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => _choisirCategorie(contact),
+                    return Card(
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          radius: 20,
+                          backgroundColor: AppColors.navy700,
+                          child: Text(
+                            contact.trim().isNotEmpty ? contact.trim()[0].toUpperCase() : '?',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        title: Text(contact, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: categorie == null
+                            ? Text('Aucune catégorie associée', style: TextStyle(color: Colors.grey.shade500))
+                            : Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.navy700.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    categorie,
+                                    style: const TextStyle(
+                                      color: AppColors.navy700,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                        trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400),
+                        onTap: () => _choisirCategorie(contact),
+                      ),
                     );
                   },
                 ),

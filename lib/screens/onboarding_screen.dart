@@ -5,6 +5,8 @@ import '../db/app_database.dart';
 import '../db/seed_data.dart';
 import '../parsing/sms_listener.dart';
 import '../services/categorization_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/gradient_button.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onTermine;
@@ -79,63 +81,75 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Bienvenue')),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.account_balance_wallet, size: 64, color: Colors.blue),
-            const SizedBox(height: 24),
-            const Text(
-              'Suivi Mobile Money & Orange Money',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              "Pour fonctionner automatiquement, l'app a besoin de lire les SMS "
-              'reçus de vos opérateurs Mobile Money afin de détecter vos '
-              'transactions. Elle ne lit et ne traite que les SMS provenant '
-              "d'Orange Money et MTN Mobile Money — aucun autre message n'est "
-              'consulté ni transmis.',
-              style: TextStyle(fontSize: 15, height: 1.4),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Note : vous pouvez soit lire vos vrais SMS pour afficher vos '
-              'transactions réelles, soit découvrir les écrans avec des '
-              'données fictives de démonstration.',
-              style: TextStyle(fontSize: 13, color: Colors.grey, fontStyle: FontStyle.italic),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: _chargementReel
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.sms),
-                label: Text(_chargementReel ? 'Lecture des SMS...' : 'Lire mes SMS et afficher mes vraies données'),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 76,
+                height: 76,
+                decoration: BoxDecoration(
+                  gradient: AppGradients.primary,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.navy700.withValues(alpha: 0.3),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.account_balance_wallet, size: 38, color: Colors.white),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Suivi Mobile Money & Orange Money',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Pour fonctionner automatiquement, l'app a besoin de lire les SMS "
+                'reçus de vos opérateurs Mobile Money afin de détecter vos '
+                'transactions. Elle ne lit et ne traite que les SMS provenant '
+                "d'Orange Money et MTN Mobile Money — aucun autre message n'est "
+                'consulté ni transmis.',
+                style: TextStyle(fontSize: 15, height: 1.4),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Note : vous pouvez soit lire vos vrais SMS pour afficher vos '
+                'transactions réelles, soit découvrir les écrans avec des '
+                'données fictives de démonstration.',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+              ),
+              const Spacer(),
+              GradientButton(
+                icon: Icons.sms,
+                loading: _chargementReel,
+                label: _chargementReel ? 'Lecture des SMS...' : 'Lire mes SMS et afficher mes vraies données',
                 onPressed: _chargementEnCours ? null : _lireSmsReels,
               ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                icon: _chargementDemo
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.play_arrow),
-                label: Text(_chargementDemo ? 'Chargement...' : 'Découvrir avec des données de démo'),
-                onPressed: _chargementEnCours
-                    ? null
-                    : () async {
-                        setState(() => _chargementDemo = true);
-                        await SeedDataService.semerSiVide(AppDatabase.instance);
-                        widget.onTermine();
-                      },
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: _chargementDemo
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.play_arrow),
+                  label: Text(_chargementDemo ? 'Chargement...' : 'Découvrir avec des données de démo'),
+                  onPressed: _chargementEnCours
+                      ? null
+                      : () async {
+                          setState(() => _chargementDemo = true);
+                          await SeedDataService.semerSiVide(AppDatabase.instance);
+                          widget.onTermine();
+                        },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

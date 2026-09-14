@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../db/app_database.dart';
 import '../services/sync_service.dart';
+import '../widgets/gradient_app_bar.dart';
+import '../widgets/gradient_button.dart';
 
 /// Écran d'état de la connexion au backend Supabase : projet configuré,
 /// compte connecté, statut de synchronisation détaillé et action de
@@ -20,7 +22,7 @@ class ConnectionStatusScreen extends StatelessWidget {
     final email = Supabase.instance.client.auth.currentUser?.email;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Connexion')),
+      appBar: const GradientAppBar(title: 'Connexion'),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -72,10 +74,10 @@ class ConnectionStatusScreen extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
+          GradientButton(
             onPressed: syncService.retryNow,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Réessayer maintenant'),
+            icon: Icons.refresh,
+            label: 'Réessayer maintenant',
           ),
         ],
       ),

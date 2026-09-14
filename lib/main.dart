@@ -14,6 +14,7 @@ import 'screens/onboarding_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/auth_gate.dart';
 import 'services/sync_service.dart';
+import 'theme/app_theme.dart';
 import 'widgets/sync_status_badge.dart';
 
 Future<void> main() async {
@@ -31,10 +32,7 @@ class MobileMoneyTrackerApp extends StatelessWidget {
     return MaterialApp(
       title: 'Suivi Mobile Money',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorSchemeSeed: Colors.blue,
-        useMaterial3: true,
-      ),
+      theme: buildAppTheme(),
       home: const _RacineApp(),
     );
   }
@@ -147,6 +145,9 @@ class _ShellPrincipalState extends State<_ShellPrincipal> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_titres[_index]),
+        flexibleSpace: const DecoratedBox(
+          decoration: BoxDecoration(gradient: AppGradients.primary),
+        ),
         actions: [
           InkWell(
             onTap: () => Navigator.of(context).push(MaterialPageRoute(

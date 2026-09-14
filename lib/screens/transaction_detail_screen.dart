@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../db/app_database.dart';
 import '../models/transaction.dart';
 import '../services/categorization_service.dart';
+import '../widgets/gradient_app_bar.dart';
+import '../widgets/gradient_button.dart';
 
 class TransactionDetailScreen extends StatefulWidget {
   final MoneyTransaction transaction;
@@ -60,31 +62,43 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final tx = widget.transaction;
+    final estEntree = tx.montantSigne > 0;
+    final couleurMontant = estEntree ? Colors.green.shade700 : Colors.red.shade700;
     final montantFmt = NumberFormat('#,##0', 'fr_FR');
     final dateFmt = DateFormat('dd/MM/yyyy HH:mm');
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Détail de la transaction')),
+      appBar: const GradientAppBar(title: 'Détail de la transaction'),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _ligneInfo('Source', tx.source == TransactionSource.orangeMoney ? 'Orange Money' : 'MTN Mobile Money'),
-          _ligneInfo('Type', tx.type.name),
-          _ligneInfo('Montant', '${montantFmt.format(tx.montant)} FCFA'),
-          _ligneInfo('Frais', '${montantFmt.format(tx.frais)} FCFA'),
-          _ligneInfo('Date', dateFmt.format(tx.dateTransaction)),
-          if (tx.soldeApres != null)
-            _ligneInfo('Solde après transaction', '${montantFmt.format(tx.soldeApres!)} FCFA'),
-          if (tx.idTransactionOperateur != null)
-            _ligneInfo('Référence opérateur', tx.idTransactionOperateur!),
-          const Divider(height: 32),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(
+                children: [
+                  _ligneInfo('Source', tx.source == TransactionSource.orangeMoney ? 'Orange Money' : 'MTN Mobile Money'),
+                  _ligneInfo('Type', tx.type.name),
+                  _ligneInfo(
+                    'Montant',
+                    '${estEntree ? '+' : '-'}${montantFmt.format(tx.montant)} FCFA',
+                    valeurCouleur: couleurMontant,
+                  ),
+                  _ligneInfo('Frais', '${montantFmt.format(tx.frais)} FCFA'),
+                  _ligneInfo('Date', dateFmt.format(tx.dateTransaction)),
+                  if (tx.soldeApres != null)
+                    _ligneInfo('Solde après transaction', '${montantFmt.format(tx.soldeApres!)} FCFA'),
+                  if (tx.idTransactionOperateur != null)
+                    _ligneInfo('Référence opérateur', tx.idTransactionOperateur!),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
 
           TextField(
             controller: _contactCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Contact / destinataire',
-              border: OutlineInputBorder(),
-            ),
+            decoration: const InputDecoration(labelText: 'Contact / destinataire'),
           ),
           const SizedBox(height: 16),
 
@@ -98,10 +112,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
               final categories = {_categorie, ...?snapshot.data}.toList()..sort();
               return DropdownButtonFormField<String>(
                 initialValue: _categorie,
-                decoration: const InputDecoration(
-                  labelText: 'Catégorie',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Catégorie'),
                 items: categories
                     .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                     .toList(),
@@ -114,10 +125,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
           TextField(
             controller: _notesCtrl,
             maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Notes',
-              border: OutlineInputBorder(),
-            ),
+            decoration: const InputDecoration(labelText: 'Notes'),
           ),
           const SizedBox(height: 24),
 
@@ -132,30 +140,33 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(tx.smsBrut!, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
               ),
             const SizedBox(height: 24),
           ],
 
-          ElevatedButton.icon(
+          GradientButton(
             onPressed: _enregistrer,
-            icon: const Icon(Icons.save),
-            label: const Text('Enregistrer'),
+            icon: Icons.save,
+            label: 'Enregistrer',
           ),
         ],
       ),
     );
   }
 
-  Widget _ligneInfo(String label, String valeur) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+  Widget _ligneInfo(String label, String valeur, {Color? valeurCouleur}) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(color: Colors.grey)),
-            Text(valeur, style: const TextStyle(fontWeight: FontWeight.w600)),
+            Text(label, style: TextStyle(color: Colors.grey.shade600)),
+            Text(
+              valeur,
+              style: TextStyle(fontWeight: FontWeight.w700, color: valeurCouleur),
+            ),
           ],
         ),
       );

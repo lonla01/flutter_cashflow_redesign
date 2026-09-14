@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../db/app_database.dart';
 import '../models/transaction.dart';
+import '../theme/app_theme.dart';
 import '../widgets/transaction_tile.dart';
 import 'transaction_detail_screen.dart';
 
@@ -94,12 +95,11 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
           child: TextField(
             decoration: const InputDecoration(
               prefixIcon: Icon(Icons.search),
               hintText: 'Rechercher un contact...',
-              border: OutlineInputBorder(),
               isDense: true,
             ),
             onChanged: (v) => setState(() {
@@ -125,7 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
         ),
-        const Divider(height: 1),
+        const SizedBox(height: 8),
         Expanded(
           child: _chargement
               ? const Center(child: CircularProgressIndicator())
@@ -139,8 +139,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         onRefresh: _charger,
                         child: ListView.separated(
                           controller: _scrollController,
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                           itemCount: _filtrees.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          separatorBuilder: (_, __) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final tx = _filtrees[index];
                             return TransactionTile(
@@ -170,26 +171,33 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _barreSelection() {
-    return Material(
-      elevation: 4,
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: AppGradients.primary,
+        boxShadow: [BoxShadow(color: Color(0x552A4C86), blurRadius: 12, offset: Offset(0, -2))],
+      ),
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.close),
+                icon: const Icon(Icons.close, color: Colors.white),
                 tooltip: 'Annuler la sélection',
                 onPressed: _annulerSelection,
               ),
               Expanded(
-                child: Text('${_selection.length} sélectionnée${_selection.length > 1 ? 's' : ''}'),
+                child: Text(
+                  '${_selection.length} sélectionnée${_selection.length > 1 ? 's' : ''}',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                ),
               ),
-              FilledButton.icon(
+              TextButton.icon(
+                style: TextButton.styleFrom(foregroundColor: Colors.white),
                 onPressed: _changerCategorieSelection,
-                icon: const Icon(Icons.drive_file_move_outline),
-                label: const Text('Changer catégorie'),
+                icon: const Icon(Icons.drive_file_move_outline, color: Colors.white),
+                label: const Text('Changer catégorie', style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -203,7 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: ChoiceChip(
-        label: Text(label),
+        label: Text(label, style: TextStyle(color: selectionne ? Colors.white : null)),
         selected: selectionne,
         onSelected: (_) => setState(() {
           _categorieFiltre = categorie;
