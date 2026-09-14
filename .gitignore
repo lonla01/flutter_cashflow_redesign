@@ -14,8 +14,9 @@
 migrate_working_dir/
 
 # Cache local de la CLI Supabase (supabase/functions/, supabase/migrations/
-# et supabase/schema.sql restent versionnés)
-supabase/.temp/
+# et supabase/schema.sql restent versionnés) — apparaît parfois imbriqué
+# selon le répertoire courant au moment de l'appel.
+**/supabase/.temp/
 
 # IntelliJ related
 *.iml
