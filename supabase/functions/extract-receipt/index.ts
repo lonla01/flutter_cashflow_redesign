@@ -1,7 +1,7 @@
-// Extraction de champs de transaction depuis une photo de reçu, via
-// l'API vision d'OpenAI. Le client (AddTransactionScreen, voir
+// Extraction de champs de transaction depuis une photo de reçu, via l'API
+// vision de Claude (Anthropic). Le client (AddTransactionScreen, voir
 // lib/services/receipt_extraction_service.dart) envoie l'image en base64 ;
-// cette fonction détient la clé API OpenAI côté serveur (jamais dans
+// cette fonction détient la clé API Anthropic côté serveur (jamais dans
 // l'app) et ne fait que relayer l'appel, pour que la clé ne puisse pas
 // être extraite de l'APK et utilisée pour facturer le compte du
 // propriétaire — même raisonnement que pour la clé de service Supabase.
@@ -10,34 +10,51 @@
 // défaut (ne PAS déployer avec --no-verify-jwt) — seul un utilisateur
 // connecté à l'app peut appeler cette fonction, ce qui limite l'abus.
 //
+// Sortie structurée : on force l'appel d'un outil (tool use) plutôt que de
+// demander du JSON en prose — Claude renvoie alors directement un objet
+// conforme au schéma, sans risque de texte parasite autour à parser.
+//
 // Déploiement (à faire manuellement, une fois par projet Supabase — voir
 // le document "Git Workflow & Release Process") :
 //   supabase functions deploy extract-receipt
-//   supabase secrets set OPENAI_API_KEY=sk-...
-// Modèle optionnel (défaut : gpt-4o-mini) :
-//   supabase secrets set OPENAI_MODEL=gpt-4o
+//   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+// Modèle optionnel (défaut : claude-sonnet-5) :
+//   supabase secrets set ANTHROPIC_MODEL=claude-haiku-4-5-20251001
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface ExtractedFields {
-  montant: number | null;
-  marchand: string | null;
-  date: string | null; // "YYYY-MM-DD"
-  notes: string | null;
-}
+const ANTHROPIC_VERSION = '2023-06-01';
+const TOOL_NAME = 'record_receipt_fields';
 
-const SYSTEM_PROMPT = `Tu extrais les informations d'un reçu ou d'une facture à partir d'une photo.
-Réponds UNIQUEMENT avec un objet JSON strict de cette forme, sans texte autour :
-{
-  "montant": <nombre, le montant total payé, sans symbole de devise, ou null si illisible>,
-  "marchand": <chaîne, le nom du commerce/marchand, ou null si illisible>,
-  "date": <chaîne "YYYY-MM-DD", la date du reçu, ou null si illisible>,
-  "notes": <chaîne courte décrivant l'achat (ex: articles principaux), ou null>
-}
-Si l'image n'est manifestement pas un reçu, renvoie toutes les valeurs à null.`;
+const RECEIPT_TOOL = {
+  name: TOOL_NAME,
+  description: "Enregistre les champs extraits d'une photo de reçu ou de facture.",
+  input_schema: {
+    type: 'object',
+    properties: {
+      montant: {
+        type: ['number', 'null'],
+        description: 'Montant total payé, en nombre, sans symbole de devise. null si illisible.',
+      },
+      marchand: {
+        type: ['string', 'null'],
+        description: 'Nom du commerce/marchand. null si illisible.',
+      },
+      date: {
+        type: ['string', 'null'],
+        description: 'Date du reçu au format "YYYY-MM-DD". null si illisible.',
+      },
+      notes: {
+        type: ['string', 'null'],
+        description: "Courte description de l'achat (ex: articles principaux). null si non pertinent.",
+      },
+    },
+    required: ['montant', 'marchand', 'date', 'notes'],
+  },
+};
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -51,54 +68,61 @@ Deno.serve(async (req) => {
     }
     const mimeType = typeof mime_type === 'string' && mime_type ? mime_type : 'image/jpeg';
 
-    const apiKey = Deno.env.get('OPENAI_API_KEY');
+    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
     if (!apiKey) {
-      return jsonResponse({ error: "Clé OpenAI non configurée côté serveur (OPENAI_API_KEY)" }, 500);
+      return jsonResponse({ error: 'Clé Anthropic non configurée côté serveur (ANTHROPIC_API_KEY)' }, 500);
     }
-    const model = Deno.env.get('OPENAI_MODEL') ?? 'gpt-4o-mini';
+    const model = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-sonnet-5';
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': ANTHROPIC_VERSION,
+        'content-type': 'application/json',
       },
       body: JSON.stringify({
         model,
-        response_format: { type: 'json_object' },
+        max_tokens: 1024,
+        tools: [RECEIPT_TOOL],
+        tool_choice: { type: 'tool', name: TOOL_NAME },
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
           {
             role: 'user',
             content: [
-              { type: 'text', text: 'Extrait les champs de ce reçu au format JSON demandé.' },
-              { type: 'image_url', image_url: { url: `data:${mimeType};base64,${image_base64}` } },
+              {
+                type: 'image',
+                source: { type: 'base64', media_type: mimeType, data: image_base64 },
+              },
+              {
+                type: 'text',
+                text:
+                  "Analyse cette photo de reçu ou de facture et enregistre les champs extraits via " +
+                  `l'outil ${TOOL_NAME}. Si l'image n'est manifestement pas un reçu, mets toutes les ` +
+                  'valeurs à null.',
+              },
             ],
           },
         ],
       }),
     });
 
-    if (!openaiResponse.ok) {
-      const detail = await openaiResponse.text();
-      console.error('OpenAI error', openaiResponse.status, detail);
+    if (!anthropicResponse.ok) {
+      const detail = await anthropicResponse.text();
+      console.error('Anthropic error', anthropicResponse.status, detail);
       return jsonResponse({ error: "Échec de l'appel au service d'extraction" }, 502);
     }
 
-    const payload = await openaiResponse.json();
-    const content = payload.choices?.[0]?.message?.content;
-    if (typeof content !== 'string') {
-      return jsonResponse({ error: 'Réponse inattendue du service d\'extraction' }, 502);
+    const payload = await anthropicResponse.json();
+    const toolUse = (payload.content ?? []).find(
+      (block: { type: string }) => block.type === 'tool_use',
+    );
+    if (!toolUse || typeof toolUse.input !== 'object') {
+      console.error('Anthropic: pas de bloc tool_use dans la réponse', JSON.stringify(payload));
+      return jsonResponse({ error: "Réponse inattendue du service d'extraction" }, 502);
     }
 
-    let fields: ExtractedFields;
-    try {
-      fields = JSON.parse(content);
-    } catch {
-      return jsonResponse({ error: "Réponse du service d'extraction illisible" }, 502);
-    }
-
-    return jsonResponse(fields, 200);
+    return jsonResponse(toolUse.input, 200);
   } catch (e) {
     console.error('extract-receipt error', e);
     return jsonResponse({ error: 'Erreur interne' }, 500);
