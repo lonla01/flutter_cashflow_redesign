@@ -25,7 +25,7 @@
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 //   supabase secrets set OPENAI_API_KEY=sk-...
 //   supabase secrets set OPENROUTER_API_KEY=sk-or-...
-//   supabase secrets set GOOGLE_API_KEY=...
+//   supabase secrets set GEMINI_API_KEY=...
 // (SUPABASE_URL et SUPABASE_ANON_KEY sont déjà injectées automatiquement
 // par la plateforme — jamais à définir manuellement.)
 
@@ -274,8 +274,8 @@ async function callOpenAiCompatible(opts: {
 }
 
 async function callGemini(model: string, imageB64: string, mimeType: string): Promise<ExtractedFields> {
-  const apiKey = Deno.env.get('GOOGLE_API_KEY');
-  if (!apiKey) throw new ProviderError('Clé Google non configurée côté serveur (GOOGLE_API_KEY)', 500);
+  const apiKey = Deno.env.get('GEMINI_API_KEY');
+  if (!apiKey) throw new ProviderError('Clé Google non configurée côté serveur (GEMINI_API_KEY)', 500);
   const resolvedModel = model || 'gemini-3.8-flash';
 
   const res = await fetch(
