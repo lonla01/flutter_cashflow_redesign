@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../widgets/gradient_app_bar.dart';
+import 'ai_model_screen.dart';
 import 'category_management_screen.dart';
 import 'contact_category_screen.dart';
 
@@ -33,6 +34,15 @@ class SettingsScreen extends StatelessWidget {
             subtitle: 'Associer un contact à une catégorie',
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => const ContactCategoryScreen(),
+            )),
+          ),
+          const SizedBox(height: 12),
+          _SettingsRow(
+            icon: Icons.smart_toy_outlined,
+            title: 'Modèle IA',
+            subtitle: 'Choisir le modèle utilisé pour scanner les reçus',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const AiModelScreen(),
             )),
           ),
         ],

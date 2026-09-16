@@ -44,6 +44,10 @@ dependencies:
   # lib/screens/add_transaction_screen.dart et
   # lib/services/receipt_extraction_service.dart).
   image_picker: ^1.1.2
+  # Préférence locale : modèle IA choisi pour l'extraction de reçu (voir
+  # lib/services/ai_model.dart). Déjà tiré en transitif par d'autres
+  # plugins, listé ici explicitement car utilisé directement par l'app.
+  shared_preferences: ^2.3.2
 
 dev_dependencies:
   flutter_test:

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../db/app_database.dart';
 import '../models/transaction.dart';
+import '../services/ai_model.dart';
 import '../services/categorization_service.dart';
 import '../services/receipt_extraction_service.dart';
 import '../widgets/gradient_app_bar.dart';
@@ -73,18 +74,24 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     if (picked == null || !mounted) return;
 
     setState(() => _extractionEnCours = true);
+    final chrono = Stopwatch()..start();
     try {
       final bytes = await picked.readAsBytes();
       final mimeType = picked.mimeType ?? 'image/jpeg';
+      final modelId = await AiModelPreference.getSelectedModelId();
+      final modele = AiModelPreference.modelFor(modelId);
       final champs = await ReceiptExtractionService()
-          .extraire(imageBytes: bytes, mimeType: mimeType);
+          .extraire(imageBytes: bytes, mimeType: mimeType, modelId: modelId);
+      chrono.stop();
 
       if (champs.estVide) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(
-                  "Aucune information lisible sur cette photo. Complétez manuellement."),
+                'Aucune information lisible sur cette photo (${modele.label}, '
+                '${chrono.elapsedMilliseconds} ms). Complétez manuellement.',
+              ),
             ),
           );
         }
@@ -131,9 +138,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         if (categorieSuggeree != null) _categorie = categorieSuggeree;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-              "Champs pré-remplis à partir de la photo — vérifiez avant d'enregistrer."),
+            'Champs pré-remplis via ${modele.label} (${chrono.elapsedMilliseconds} ms) '
+            "— vérifiez avant d'enregistrer.",
+          ),
         ),
       );
     } on ReceiptExtractionException catch (e) {

@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'ai_model.dart';
+
 /// Champs extraits d'une photo de reçu par la fonction Edge
 /// `extract-receipt`. Chaque champ peut être `null` si l'IA n'a pas su le
 /// lire — l'appelant doit toujours laisser l'utilisateur compléter/corriger
@@ -45,6 +47,7 @@ class ReceiptExtractionService {
   Future<ReceiptExtractedFields> extraire({
     required List<int> imageBytes,
     required String mimeType,
+    String? modelId,
   }) async {
     final FunctionResponse response;
     try {
@@ -53,6 +56,7 @@ class ReceiptExtractionService {
         body: {
           'image_base64': base64Encode(imageBytes),
           'mime_type': mimeType,
+          'model_id': modelId ?? defaultAiModelId,
         },
       );
     } on FunctionException catch (e) {
