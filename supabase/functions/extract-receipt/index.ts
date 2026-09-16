@@ -276,7 +276,7 @@ async function callOpenAiCompatible(opts: {
 async function callGemini(model: string, imageB64: string, mimeType: string): Promise<ExtractedFields> {
   const apiKey = Deno.env.get('GOOGLE_API_KEY');
   if (!apiKey) throw new ProviderError('Clé Google non configurée côté serveur (GOOGLE_API_KEY)', 500);
-  const resolvedModel = model || 'gemini-2.5-flash';
+  const resolvedModel = model || 'gemini-3.8-flash';
 
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${resolvedModel}:generateContent?key=${apiKey}`,

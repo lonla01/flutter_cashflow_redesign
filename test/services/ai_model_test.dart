@@ -36,8 +36,8 @@ void main() {
     });
 
     test('modelFor retrouve le bon modèle par id', () {
-      final model = AiModelPreference.modelFor('google:gemini-2.5-flash');
-      expect(model.label, 'Gemini 2.5 Flash');
+      final model = AiModelPreference.modelFor('google:gemini-3.8-flash');
+      expect(model.label, 'Gemini 3.8 Flash');
     });
 
     test('modelFor retombe sur le premier modèle pour un id inconnu', () {

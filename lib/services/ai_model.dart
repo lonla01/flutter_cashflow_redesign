@@ -42,8 +42,8 @@ const List<AiModel> availableAiModels = [
     note: 'Qwen via OpenRouter — spécialisé OCR/documents',
   ),
   AiModel(
-    id: 'google:gemini-2.5-flash',
-    label: 'Gemini 2.5 Flash',
+    id: 'google:gemini-3.8-flash',
+    label: 'Gemini 3.8 Flash',
     note: 'Google — rapide et économique',
   ),
 ];
