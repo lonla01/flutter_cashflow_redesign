@@ -11,6 +11,7 @@ import 'screens/connection_status_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'screens/recents_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/auth_gate.dart';
 import 'services/sync_service.dart';
@@ -137,8 +138,8 @@ class _ShellPrincipal extends StatefulWidget {
 class _ShellPrincipalState extends State<_ShellPrincipal> {
   int _index = 0;
 
-  static const _titres = ['Transactions', 'Rapports'];
-  static const _ecrans = [HomeScreen(), DashboardScreen()];
+  static const _titres = ['Transactions', 'Récents', 'Rapports'];
+  static const _ecrans = [HomeScreen(), RecentsScreen(), DashboardScreen()];
 
   @override
   Widget build(BuildContext context) {
@@ -170,6 +171,7 @@ class _ShellPrincipalState extends State<_ShellPrincipal> {
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.list_alt), label: 'Transactions'),
+          NavigationDestination(icon: Icon(Icons.history), label: 'Récents'),
           NavigationDestination(icon: Icon(Icons.bar_chart), label: 'Rapports'),
         ],
       ),
