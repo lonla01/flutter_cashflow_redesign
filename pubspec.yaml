@@ -40,6 +40,14 @@ dependencies:
   another_telephony: ^0.4.1
   permission_handler: ^11.3.1
 
+  # iOS n'autorise aucune app tierce à lire les SMS (pas d'équivalent à
+  # another_telephony) : sur iOS, l'import se fait via un Raccourci (Shortcuts)
+  # qui sélectionne les SMS Mobile Money et les transmet à l'app par deep
+  # link (voir lib/services/sms_import_link_service.dart). Déjà une
+  # dépendance transitive de supabase_flutter (lien de confirmation email) ;
+  # déclarée ici en direct pour pouvoir écouter le stream nous-mêmes.
+  app_links: ^7.2.1
+
   # Saisie manuelle de transaction + photo de reçu (voir
   # lib/screens/add_transaction_screen.dart et
   # lib/services/receipt_extraction_service.dart).

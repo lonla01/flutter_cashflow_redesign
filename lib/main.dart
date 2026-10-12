@@ -18,6 +18,7 @@ import 'screens/recents_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/auth_gate.dart';
 import 'services/categorization_service.dart';
+import 'services/sms_import_link_service.dart';
 import 'services/sync_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/sync_status_badge.dart';
@@ -63,11 +64,19 @@ class _RacineAppState extends State<_RacineApp> {
   Object? _erreur;
   StreamSubscription<bool>? _authSub;
   late final SyncService _syncService = SyncServiceFactory.builder(AppDatabase.instance);
+  late final SmsImportLinkService _smsImportLinkService = SmsImportLinkService(
+    AppDatabase.instance,
+    CategorizationService(AppDatabase.instance),
+  );
 
   @override
   void initState() {
     super.initState();
     _authSub = AuthGate.current.onAuthChanged.listen(_onAuthChanged);
+    // Démarré inconditionnellement (pas seulement si authentifié) : on veut
+    // traiter un lien d'import reçu à froid dès que possible, et il ne fait
+    // rien tant qu'aucun Raccourci ne lui envoie de lien `import-sms`.
+    _smsImportLinkService.demarrer();
     if (_authentifie) {
       _syncService.start();
       _verifier();
@@ -78,6 +87,7 @@ class _RacineAppState extends State<_RacineApp> {
   void dispose() {
     _authSub?.cancel();
     _syncService.stop();
+    _smsImportLinkService.arreter();
     super.dispose();
   }
 
