@@ -70,7 +70,7 @@ void main() {
   testWidgets('Utilisateur non authentifié -> écran de connexion', (tester) async {
     AuthGate.current = FakeAuthGate(authenticated: false);
 
-    await tester.pumpWidget(const MobileMoneyTrackerApp());
+    await tester.pumpWidget(const CashflowApp());
     await tester.pump();
 
     expect(find.byType(AuthScreen), findsOneWidget);
@@ -80,7 +80,7 @@ void main() {
   testWidgets('Utilisateur authentifié, base locale vide -> onboarding', (tester) async {
     AuthGate.current = FakeAuthGate(authenticated: true);
 
-    await tester.pumpWidget(const MobileMoneyTrackerApp());
+    await tester.pumpWidget(const CashflowApp());
     await tester.pumpAndSettle();
 
     expect(find.text('Découvrir avec des données de démo'), findsOneWidget);
@@ -102,7 +102,7 @@ void main() {
     await AppDatabase.instance.insertTransactionIfNew(buildTransaction());
     AuthGate.current = FakeAuthGate(authenticated: true);
 
-    await tester.pumpWidget(const MobileMoneyTrackerApp());
+    await tester.pumpWidget(const CashflowApp());
     await tester.pumpAndSettle();
 
     expect(find.text('Découvrir avec des données de démo'), findsNothing);
@@ -117,7 +117,7 @@ void main() {
     final fakeAuth = FakeAuthGate(authenticated: false);
     AuthGate.current = fakeAuth;
 
-    await tester.pumpWidget(const MobileMoneyTrackerApp());
+    await tester.pumpWidget(const CashflowApp());
     await tester.pump();
     expect(find.byType(AuthScreen), findsOneWidget);
 
@@ -135,7 +135,7 @@ void main() {
     final fakeAuth = FakeAuthGate(authenticated: true);
     AuthGate.current = fakeAuth;
 
-    await tester.pumpWidget(const MobileMoneyTrackerApp());
+    await tester.pumpWidget(const CashflowApp());
     await tester.pumpAndSettle();
     expect(find.byType(AuthScreen), findsNothing);
 
@@ -163,7 +163,7 @@ void main() {
     final fakeAuth = FakeAuthGate(authenticated: false);
     AuthGate.current = fakeAuth;
 
-    await tester.pumpWidget(const MobileMoneyTrackerApp());
+    await tester.pumpWidget(const CashflowApp());
     await tester.pump();
     // _syncService est un champ `late final` : tant que l'utilisateur n'a
     // jamais été authentifié, il n'est pas encore construit.
@@ -189,7 +189,7 @@ void main() {
       final fakeAuth = FakeAuthGate(authenticated: true);
       AuthGate.current = fakeAuth;
 
-      await tester.pumpWidget(const MobileMoneyTrackerApp());
+      await tester.pumpWidget(const CashflowApp());
       await tester.pumpAndSettle();
       expect(await AppDatabase.instance.countTransactions(), 1);
 

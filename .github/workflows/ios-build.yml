@@ -1,0 +1,136 @@
+name: iOS ad-hoc build
+
+# Manual, on-demand build of a signed, installable .ipa — not part of the
+# push/PR gate (see ci.yml for that). Needs a Mac to *install* Xcode's disk
+# footprint, which this sidesteps: the macOS runner has Xcode preinstalled,
+# we just need signing credentials to produce something installable on a
+# real device (see "Required secrets" below — nothing here works without
+# them, Apple requires every non-App-Store install to be signed for a
+# specific registered device).
+#
+# Required repository secrets (Settings > Secrets and variables > Actions):
+#   IOS_CERTIFICATE_BASE64           base64 of your .p12 signing certificate
+#                                     (export from Keychain Access on any Mac,
+#                                     or generate headlessly with `fastlane cert`)
+#   IOS_CERTIFICATE_PASSWORD         the password you set when exporting the .p12
+#   IOS_PROVISIONING_PROFILE_BASE64  base64 of the .mobileprovision file from
+#                                     developer.apple.com > Profiles — must be
+#                                     an Ad Hoc (or Development) profile that
+#                                     includes your iPhone's UDID and matches
+#                                     the app's bundle id, com.apptitude.cashflow
+#                                     (see PRODUCT_BUNDLE_IDENTIFIER in
+#                                     ios/Runner.xcodeproj/project.pbxproj)
+#   APPLE_TEAM_ID                    your 10-character Apple Developer Team ID
+#                                     (developer.apple.com/account > Membership)
+#
+# To base64-encode a file for a secret:
+#   base64 -i Certificate.p12 | pbcopy        # macOS
+#   base64 -w0 Certificate.p12                # Linux, then copy stdout
+#
+# Output: the signed .ipa is uploaded as a workflow artifact. Install it with
+# Apple Configurator 2 (drag and drop, USB), `ideviceinstaller` from
+# libimobiledevice (works from Linux, no Xcode needed), or an OTA host like
+# Diawi. See ios/README-shortcuts.md for why this exists at all (iOS SMS
+# import) rather than how to sign apps generally.
+
+on:
+  workflow_dispatch:
+    inputs:
+      export_method:
+        description: "Export method (ad-hoc or development — both work for a registered test device)"
+        required: false
+        default: "ad-hoc"
+        type: choice
+        options:
+          - ad-hoc
+          - development
+
+jobs:
+  build-ipa:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.4'
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Standard recipe for getting a signing identity onto a CI runner
+      # without a persistent login keychain. The keychain and decoded files
+      # live only in $RUNNER_TEMP, wiped with the ephemeral runner.
+      - name: Install signing certificate and provisioning profile
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+          CERTIFICATE_PATH="$RUNNER_TEMP/build_certificate.p12"
+          PP_PATH="$RUNNER_TEMP/build_pp.mobileprovision"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERTIFICATE_PATH"
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PP_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          security default-keychain -s "$KEYCHAIN_PATH"
+
+          mkdir -p ~/Library/MobileDevice/"Provisioning Profiles"
+          cp "$PP_PATH" ~/Library/MobileDevice/"Provisioning Profiles"/
+
+          # Read the profile's own name/UUID back out so ExportOptions.plist
+          # (next step) can reference it without a separate secret.
+          security cms -D -i "$PP_PATH" > "$RUNNER_TEMP/pp.plist"
+          echo "PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/pp.plist")" >> "$GITHUB_ENV"
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
+      - name: Write ExportOptions.plist
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          EXPORT_METHOD: ${{ inputs.export_method }}
+          BUNDLE_ID: com.apptitude.cashflow
+        run: |
+          cat > ios/ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>${EXPORT_METHOD}</string>
+            <key>teamID</key>
+            <string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${BUNDLE_ID}</key>
+              <string>${PROFILE_NAME}</string>
+            </dict>
+          </dict>
+          </plist>
+          PLIST
+
+      - name: Build signed IPA
+        run: flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-money-tracker-ipa
+          path: build/ios/ipa/*.ipa
+          retention-days: 14
+
+      - name: Clean up temporary keychain
+        if: always()
+        run: security delete-keychain "$KEYCHAIN_PATH" || true

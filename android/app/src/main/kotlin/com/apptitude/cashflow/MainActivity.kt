@@ -1,4 +1,4 @@
-package com.example.mobile_money_tracker
+package com.apptitude.cashflow
 
 import io.flutter.embedding.android.FlutterActivity
 
