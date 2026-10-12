@@ -48,6 +48,17 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
+        <!-- Requis par le plugin `another_telephony` pour détecter les SMS
+             entrants (voir lib/parsing/sms_listener.dart) : sans ce receiver,
+             `listenIncomingSms` ne reçoit jamais aucun message, ni au premier
+             plan ni en arrière-plan. -->
+        <receiver android:name="com.shounakmulay.telephony.sms.IncomingSmsReceiver"
+            android:permission="android.permission.BROADCAST_SMS" android:exported="true">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED"/>
+            </intent-filter>
+        </receiver>
+
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -232,6 +232,39 @@ class AppDatabase {
     return rows.map(_modelFromRow).toList();
   }
 
+  /// Version réactive de [getAllTransactions] : notifie chaque nouvel
+  /// événement (ajout manuel, SMS détecté, catégorie modifiée) sans que
+  /// l'écran appelant ait à recharger explicitement.
+  Stream<List<MoneyTransaction>> watchTransactions({
+    DateTime? from,
+    DateTime? to,
+  }) {
+    if (kIsWeb) {
+      // Pas de vrai stream réactif en mémoire, voir watchCategories().
+      final rows = _memTransactions.where((row) {
+        final dateStr = row['date_transaction'] as String?;
+        if (dateStr == null) return true;
+        final date = DateTime.parse(dateStr);
+        if (from != null && date.isBefore(from)) return false;
+        if (to != null && date.isAfter(to)) return false;
+        return true;
+      }).toList()
+        ..sort((a, b) => (b['date_transaction'] as String)
+            .compareTo(a['date_transaction'] as String));
+      return Stream.value(rows.map(MoneyTransaction.fromMap).toList());
+    }
+
+    final query = _db.select(_db.transactions)
+      ..orderBy([(t) => OrderingTerm.desc(t.dateTransaction)]);
+    if (from != null) {
+      query.where((t) => t.dateTransaction.isBiggerOrEqualValue(from));
+    }
+    if (to != null) {
+      query.where((t) => t.dateTransaction.isSmallerOrEqualValue(to));
+    }
+    return query.watch().map((rows) => rows.map(_modelFromRow).toList());
+  }
+
   Future<int> countTransactions() async {
     if (kIsWeb) return _memTransactions.length;
     final countExp = _db.transactions.id.count();

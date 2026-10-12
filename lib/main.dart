@@ -1,11 +1,14 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config/supabase_config.dart';
 import 'db/app_database.dart';
+import 'parsing/sms_listener.dart';
 import 'screens/auth_screen.dart';
 import 'screens/connection_status_screen.dart';
 import 'screens/dashboard_screen.dart';
@@ -14,6 +17,7 @@ import 'screens/onboarding_screen.dart';
 import 'screens/recents_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/auth_gate.dart';
+import 'services/categorization_service.dart';
 import 'services/sync_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/sync_status_badge.dart';
@@ -96,10 +100,26 @@ class _RacineAppState extends State<_RacineApp> {
       final count = await AppDatabase.instance.countTransactions();
       if (!mounted) return;
       setState(() => _aDesDonnees = count > 0);
+      _reprendreEcouteSmsSiAutorisee();
     } catch (e) {
       if (!mounted) return;
       setState(() => _erreur = e);
     }
+  }
+
+  /// Au premier lancement, l'écoute SMS en direct est démarrée depuis
+  /// OnboardingScreen juste après l'octroi de la permission — mais ce
+  /// démarrage ne survit pas au redémarrage du process. On la relance donc
+  /// ici à chaque lancement, silencieusement et sans re-solliciter la
+  /// permission : si elle n'a jamais été accordée (utilisateur en mode
+  /// démo par exemple), on ne fait rien.
+  bool _ecouteSmsDemarree = false;
+  Future<void> _reprendreEcouteSmsSiAutorisee() async {
+    if (_ecouteSmsDemarree || kIsWeb) return;
+    if (!await Permission.sms.status.isGranted) return;
+    _ecouteSmsDemarree = true;
+    SmsListenerService(AppDatabase.instance, CategorizationService(AppDatabase.instance))
+        .demarrerEcoute();
   }
 
   @override
