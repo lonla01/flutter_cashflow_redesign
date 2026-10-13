@@ -43,6 +43,19 @@ class _PendingAuthGate implements AuthGate {
   @override
   Future<void> signOut() async {}
 
+  @override
+  Future<void> resetPasswordForEmail(String email) async {
+    await _completer.future;
+  }
+
+  @override
+  Future<void> updatePassword(String newPassword) async {
+    await _completer.future;
+  }
+
+  @override
+  Stream<void> get onPasswordRecovery => const Stream.empty();
+
   void resolve() => _completer.complete();
 }
 

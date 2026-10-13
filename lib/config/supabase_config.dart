@@ -17,11 +17,14 @@ class SupabaseConfig {
     defaultValue: 'sb_publishable_SBQ4hi4-zWuMzXxxH3l4bw_gre6Ndv3',
   );
 
-  /// URL de redirection pour le lien de confirmation d'email envoyé par
-  /// Supabase à l'inscription. Doit être un schéma personnalisé (pas
+  /// URL de redirection utilisée pour les deux liens qu'envoie Supabase par
+  /// email : confirmation d'inscription et réinitialisation de mot de passe
+  /// (voir AuthGate.signUp / AuthGate.resetPasswordForEmail). Les deux
+  /// partagent ce même lien générique ; c'est le paramètre `type` dans
+  /// l'URL (`signup` vs `recovery`) qui détermine quel AuthChangeEvent
+  /// GoTrue émet à l'ouverture. Doit être un schéma personnalisé (pas
   /// `http://localhost`, qui ne mène nulle part sur mobile) enregistré à la
   /// fois côté app (AndroidManifest.xml / Info.plist) et côté Supabase
   /// (Dashboard > Authentication > URL Configuration > Redirect URLs).
-  static const String emailConfirmationRedirectUrl =
-      'mobilemoneytracker://login-callback';
+  static const String authRedirectUrl = 'mobilemoneytracker://login-callback';
 }

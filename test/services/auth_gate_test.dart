@@ -83,7 +83,7 @@ void main() {
         () => mockAuth.signUp(
           email: 'nouveau@b.com',
           password: 's3cret!',
-          emailRedirectTo: SupabaseConfig.emailConfirmationRedirectUrl,
+          emailRedirectTo: SupabaseConfig.authRedirectUrl,
         ),
       ).thenAnswer((_) async => AuthResponse(session: fakeSession()));
 
@@ -93,7 +93,7 @@ void main() {
         () => mockAuth.signUp(
           email: 'nouveau@b.com',
           password: 's3cret!',
-          emailRedirectTo: SupabaseConfig.emailConfirmationRedirectUrl,
+          emailRedirectTo: SupabaseConfig.authRedirectUrl,
         ),
       ).called(1);
     });
@@ -155,6 +155,69 @@ void main() {
       when(() => mockAuth.signOut()).thenThrow(const AuthException('network error'));
 
       expect(() => gate.signOut(), throwsA(isA<AuthException>()));
+    });
+  });
+
+  group('resetPasswordForEmail', () {
+    test('appelle resetPasswordForEmail avec l\'email et authRedirectUrl', () async {
+      when(
+        () => mockAuth.resetPasswordForEmail('a@b.com', redirectTo: SupabaseConfig.authRedirectUrl),
+      ).thenAnswer((_) async {});
+
+      await gate.resetPasswordForEmail('a@b.com');
+
+      verify(
+        () => mockAuth.resetPasswordForEmail('a@b.com', redirectTo: SupabaseConfig.authRedirectUrl),
+      ).called(1);
+    });
+
+    test('propage une AuthException levée par GoTrueClient', () {
+      when(() => mockAuth.resetPasswordForEmail(any(), redirectTo: any(named: 'redirectTo')))
+          .thenThrow(const AuthException('over_email_send_rate_limit'));
+
+      expect(
+        () => gate.resetPasswordForEmail('a@b.com'),
+        throwsA(isA<AuthException>()),
+      );
+    });
+  });
+
+  group('updatePassword', () {
+    test('appelle updateUser avec le nouveau mot de passe', () async {
+      when(() => mockAuth.updateUser(any()))
+          .thenAnswer((_) async => UserResponse.fromJson(fakeUser().toJson()));
+
+      await gate.updatePassword('nouveauMotDePasse1');
+
+      final captured = verify(() => mockAuth.updateUser(captureAny())).captured;
+      expect((captured.single as UserAttributes).password, 'nouveauMotDePasse1');
+    });
+
+    test('propage une AuthException levée par GoTrueClient (session de récupération expirée)', () {
+      when(() => mockAuth.updateUser(any())).thenThrow(const AuthException('invalid JWT'));
+
+      expect(
+        () => gate.updatePassword('nouveauMotDePasse1'),
+        throwsA(isA<AuthException>()),
+      );
+    });
+  });
+
+  group('onPasswordRecovery', () {
+    test('émet uniquement sur AuthChangeEvent.passwordRecovery, pas les autres événements', () {
+      final controller = StreamController<AuthState>();
+      when(() => mockAuth.onAuthStateChange).thenAnswer((_) => controller.stream);
+
+      // Un seul événement doit passer le filtre (le passwordRecovery), les
+      // deux autres doivent être ignorés : emitsInOrder échouerait si
+      // signedIn/signedOut fuitaient aussi à travers le `.where()`.
+      expect(gate.onPasswordRecovery, emitsInOrder([anything, emitsDone]));
+
+      controller
+        ..add(AuthState(AuthChangeEvent.signedIn, fakeSession()))
+        ..add(AuthState(AuthChangeEvent.passwordRecovery, fakeSession()))
+        ..add(const AuthState(AuthChangeEvent.signedOut, null));
+      controller.close();
     });
   });
 }

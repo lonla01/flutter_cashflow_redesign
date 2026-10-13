@@ -31,8 +31,8 @@
 	<string>Prendre une photo d'un reçu pour en extraire automatiquement les informations de transaction.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choisir une photo de reçu dans votre galerie pour en extraire automatiquement les informations de transaction.</string>
-	<!-- Phase 2 : lien de confirmation d'email Supabase (voir
-	     lib/config/supabase_config.dart, emailConfirmationRedirectUrl) -->
+	<!-- Phase 2 : lien de confirmation d'email + réinitialisation de mot de
+	     passe Supabase (voir lib/config/supabase_config.dart, authRedirectUrl) -->
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

@@ -27,6 +27,22 @@ abstract class AuthGate {
   Future<bool> signUp({required String email, required String password});
 
   Future<void> signOut();
+
+  /// Envoie un email contenant un lien de réinitialisation de mot de passe.
+  /// Le lien ouvre l'app sur `SupabaseConfig.authRedirectUrl` avec un token
+  /// de récupération, ce qui déclenche un événement sur
+  /// [onPasswordRecovery].
+  Future<void> resetPasswordForEmail(String email);
+
+  /// Définit un nouveau mot de passe. Ne fonctionne que pendant une session
+  /// valide — en pratique, juste après [onPasswordRecovery], tant que la
+  /// session de récupération établie par le lien est active.
+  Future<void> updatePassword(String newPassword);
+
+  /// Émet à chaque fois que l'utilisateur ouvre l'app via un lien de
+  /// réinitialisation de mot de passe (voir _RacineAppState dans main.dart,
+  /// qui écoute ce stream pour présenter ResetPasswordScreen).
+  Stream<void> get onPasswordRecovery;
 }
 
 class SupabaseAuthGate implements AuthGate {
@@ -54,11 +70,27 @@ class SupabaseAuthGate implements AuthGate {
     final response = await _auth.signUp(
       email: email,
       password: password,
-      emailRedirectTo: SupabaseConfig.emailConfirmationRedirectUrl,
+      emailRedirectTo: SupabaseConfig.authRedirectUrl,
     );
     return response.session != null;
   }
 
   @override
   Future<void> signOut() => _auth.signOut();
+
+  @override
+  Future<void> resetPasswordForEmail(String email) => _auth.resetPasswordForEmail(
+        email,
+        redirectTo: SupabaseConfig.authRedirectUrl,
+      );
+
+  @override
+  Future<void> updatePassword(String newPassword) async {
+    await _auth.updateUser(UserAttributes(password: newPassword));
+  }
+
+  @override
+  Stream<void> get onPasswordRecovery => _auth.onAuthStateChange
+      .where((state) => state.event == AuthChangeEvent.passwordRecovery)
+      .map((_) {});
 }

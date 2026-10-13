@@ -11,7 +11,12 @@ class FakeAuthGate implements AuthGate {
 
   bool _authenticated;
   final _controller = StreamController<bool>.broadcast();
+  final _recoveryController = StreamController<void>.broadcast();
   Object? errorOnSignIn;
+  Object? errorOnResetPassword;
+  Object? errorOnUpdatePassword;
+  String? lastResetPasswordEmail;
+  String? lastUpdatedPassword;
 
   /// Si `true`, simule un projet Supabase avec confirmation d'email requise :
   /// `signUp` n'ouvre pas de session tant que le lien reçu par email n'a pas
@@ -46,7 +51,29 @@ class FakeAuthGate implements AuthGate {
   @override
   Future<void> signOut() async => setAuthenticated(false);
 
-  void dispose() => _controller.close();
+  @override
+  Future<void> resetPasswordForEmail(String email) async {
+    if (errorOnResetPassword != null) throw errorOnResetPassword!;
+    lastResetPasswordEmail = email;
+  }
+
+  @override
+  Future<void> updatePassword(String newPassword) async {
+    if (errorOnUpdatePassword != null) throw errorOnUpdatePassword!;
+    lastUpdatedPassword = newPassword;
+  }
+
+  @override
+  Stream<void> get onPasswordRecovery => _recoveryController.stream;
+
+  /// Simule l'arrivée du lien de récupération de mot de passe (voir
+  /// _RacineAppState dans main.dart).
+  void triggerPasswordRecovery() => _recoveryController.add(null);
+
+  void dispose() {
+    _controller.close();
+    _recoveryController.close();
+  }
 }
 
 /// Faux [ConnectivityChecker] : connectivité pilotée manuellement par le

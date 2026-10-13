@@ -15,6 +15,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/recents_screen.dart';
+import 'screens/reset_password_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/auth_gate.dart';
 import 'services/categorization_service.dart';
@@ -63,6 +64,7 @@ class _RacineAppState extends State<_RacineApp> {
   bool? _aDesDonnees;
   Object? _erreur;
   StreamSubscription<bool>? _authSub;
+  StreamSubscription<void>? _recoverySub;
   late final SyncService _syncService = SyncServiceFactory.builder(AppDatabase.instance);
   late final SmsImportLinkService _smsImportLinkService = SmsImportLinkService(
     AppDatabase.instance,
@@ -73,6 +75,12 @@ class _RacineAppState extends State<_RacineApp> {
   void initState() {
     super.initState();
     _authSub = AuthGate.current.onAuthChanged.listen(_onAuthChanged);
+    // Peut survenir à tout moment (app déjà ouverte ou lancée à froid via le
+    // lien) et indépendamment de l'état d'authentification courant : ce même
+    // événement fait aussi passer isAuthenticated à true via _onAuthChanged
+    // (la session de récupération est une vraie session), donc les deux
+    // écouteurs tournent en parallèle sans se marcher dessus.
+    _recoverySub = AuthGate.current.onPasswordRecovery.listen((_) => _afficherRecuperation());
     // Démarré inconditionnellement (pas seulement si authentifié) : on veut
     // traiter un lien d'import reçu à froid dès que possible, et il ne fait
     // rien tant qu'aucun Raccourci ne lui envoie de lien `import-sms`.
@@ -86,9 +94,17 @@ class _RacineAppState extends State<_RacineApp> {
   @override
   void dispose() {
     _authSub?.cancel();
+    _recoverySub?.cancel();
     _syncService.stop();
     _smsImportLinkService.arreter();
     super.dispose();
+  }
+
+  void _afficherRecuperation() {
+    if (!mounted) return;
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => const ResetPasswordScreen(),
+    ));
   }
 
   void _onAuthChanged(bool authentifie) {

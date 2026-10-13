@@ -25,6 +25,8 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _enCours = false;
   String? _erreur;
   String? _emailConfirmationEnvoyeeA;
+  bool _modeMotDePasseOublie = false;
+  String? _emailRecuperationEnvoyeeA;
 
   @override
   void dispose() {
@@ -63,8 +65,33 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  Future<void> _envoyerEmailRecuperation() async {
+    final email = _emailController.text.trim();
+    if (!email.contains('@')) {
+      setState(() => _erreur = 'Email invalide');
+      return;
+    }
+    setState(() {
+      _enCours = true;
+      _erreur = null;
+    });
+    try {
+      await AuthGate.current.resetPasswordForEmail(email);
+      if (!mounted) return;
+      setState(() => _emailRecuperationEnvoyeeA = email);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _erreur = e.toString());
+    } finally {
+      if (mounted) setState(() => _enCours = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_modeMotDePasseOublie) {
+      return _ecranMotDePasseOublie();
+    }
     if (_emailConfirmationEnvoyeeA != null) {
       return Scaffold(
         appBar: const GradientAppBar(title: 'Confirmez votre email'),
@@ -141,6 +168,19 @@ class _AuthScreenState extends State<AuthScreen> {
                         validator: (v) =>
                             (v == null || v.length < 6) ? 'Au moins 6 caractères' : null,
                       ),
+                      if (!_modeInscription)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: _enCours
+                                ? null
+                                : () => setState(() {
+                                      _modeMotDePasseOublie = true;
+                                      _erreur = null;
+                                    }),
+                            child: const Text('Mot de passe oublié ?'),
+                          ),
+                        ),
                       if (_erreur != null) ...[
                         const SizedBox(height: 14),
                         Container(
@@ -184,6 +224,98 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
+  Widget _ecranMotDePasseOublie() {
+    if (_emailRecuperationEnvoyeeA != null) {
+      return Scaffold(
+        appBar: const GradientAppBar(title: 'Vérifiez vos emails'),
+        body: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Icon(Icons.mark_email_read_outlined, size: 64, color: AppColors.navy700),
+              const SizedBox(height: 24),
+              Text(
+                'Un email de réinitialisation a été envoyé à '
+                '$_emailRecuperationEnvoyeeA. Ouvrez-le sur cet appareil et '
+                'suivez le lien pour choisir un nouveau mot de passe.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 15, height: 1.4),
+              ),
+              const SizedBox(height: 24),
+              GradientButton(
+                onPressed: () => setState(() {
+                  _modeMotDePasseOublie = false;
+                  _emailRecuperationEnvoyeeA = null;
+                }),
+                label: 'Retour à la connexion',
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return Scaffold(
+      appBar: const GradientAppBar(title: 'Mot de passe oublié'),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Entrez votre email : nous vous envoyons un lien pour choisir '
+                'un nouveau mot de passe.',
+                style: TextStyle(color: Colors.grey.shade600, height: 1.4),
+              ),
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.alternate_email),
+                ),
+              ),
+              if (_erreur != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.red.shade100),
+                  ),
+                  child: Text(
+                    _erreur!,
+                    style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              GradientButton(
+                onPressed: _enCours ? null : _envoyerEmailRecuperation,
+                loading: _enCours,
+                label: 'Envoyer le lien',
+              ),
+              const SizedBox(height: 4),
+              TextButton(
+                onPressed: _enCours
+                    ? null
+                    : () => setState(() {
+                          _modeMotDePasseOublie = false;
+                          _erreur = null;
+                        }),
+                child: const Text('Retour à la connexion'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _entete() {
     return Container(
       width: double.infinity,
@@ -205,7 +337,7 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
           const SizedBox(height: 16),
           const Text(
-            'Suivi Mobile Money',
+            'Cashflow',
             style: TextStyle(
               color: Colors.white,
               fontSize: 22,
