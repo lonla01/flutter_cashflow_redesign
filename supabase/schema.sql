@@ -78,7 +78,23 @@ set search_path = public
 as $$
 declare
   result public.transactions;
+  existing_id uuid;
 begin
+  -- Même transaction opérateur déjà connue du serveur sous un autre uuid
+  -- (réinstallation, données effacées, second appareil : le rescan SMS
+  -- génère de nouveaux uuid) : on adopte l'id serveur plutôt que de violer
+  -- transactions_user_operateur_id_key. Le client détecte l'id différent
+  -- dans la ligne retournée et réaligne son id local.
+  if payload->>'id_transaction_operateur' is not null then
+    select id into existing_id from public.transactions
+      where user_id = auth.uid()
+        and id_transaction_operateur = payload->>'id_transaction_operateur'
+        and id <> (payload->>'id')::uuid;
+    if existing_id is not null then
+      payload := jsonb_set(payload, '{id}', to_jsonb(existing_id::text));
+    end if;
+  end if;
+
   insert into public.transactions (
     id, user_id, source, type, montant, frais, montant_net, solde_apres,
     contact_nom, contact_numero, categorie, date_transaction,

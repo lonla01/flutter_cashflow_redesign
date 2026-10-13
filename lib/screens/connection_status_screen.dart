@@ -51,7 +51,10 @@ class ConnectionStatusScreen extends StatelessWidget {
                               ? Text('$pending transaction${pending > 1 ? 's' : ''} en attente')
                               : null,
                         ),
-                        if (status == SyncStatus.erreur)
+                        // Aussi pour les échecs réessayables (statut "en
+                        // attente") : sans ce message, un "Réessayer" qui
+                        // échoue encore ne laisse aucune trace visible.
+                        if (status == SyncStatus.erreur || pending > 0)
                           FutureBuilder<String?>(
                             future: AppDatabase.instance.getLastSyncError(),
                             builder: (context, errSnapshot) {
@@ -75,13 +78,30 @@ class ConnectionStatusScreen extends StatelessWidget {
           ]),
           const SizedBox(height: 24),
           GradientButton(
-            onPressed: syncService.retryNow,
+            onPressed: () => _reessayer(context),
             icon: Icons.refresh,
             label: 'Réessayer maintenant',
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _reessayer(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('Synchronisation en cours…')));
+    await syncService.retryNow();
+    final restantes = (await AppDatabase.instance.getSyncableEntries()).length;
+    final erreur = await AppDatabase.instance.getLastSyncError();
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(
+          restantes == 0 && erreur == null
+              ? 'Synchronisation terminée'
+              : 'Synchronisation incomplète${erreur != null ? ' : $erreur' : ''}',
+        ),
+      ));
   }
 
   (IconData, Color?, String) _statusPresentation(SyncStatus status, int pending) {

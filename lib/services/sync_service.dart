@@ -52,10 +52,16 @@ class SyncService {
 
   final ValueNotifier<SyncStatus> status = ValueNotifier(SyncStatus.synchronise);
 
+  /// Plafond de durée d'un appel réseau : sans lui, une requête qui ne
+  /// répond jamais laisserait [_running] à true indéfiniment et tout
+  /// déclencheur ultérieur (y compris "Réessayer") deviendrait sans effet.
+  static const networkTimeout = Duration(seconds: 20);
+
   StreamSubscription<bool>? _connSub;
   StreamSubscription<List<SyncQueueEntryRow>>? _queueSub;
   bool _running = false;
   bool _rerunRequested = false;
+  Completer<void>? _idle;
 
   void start() {
     if (kIsWeb) return;
@@ -63,7 +69,7 @@ class SyncService {
       _connSub = connectivity.onStatusChange.listen((online) {
         if (online) {
           unawaited(db.resetFailedEntriesToPending());
-          _kick();
+          unawaited(_kick());
         }
       }, onError: (_) {});
     } catch (_) {
@@ -72,9 +78,9 @@ class SyncService {
       // démarrer : la synchro restera simplement inactive.
     }
     _queueSub = db.watchPendingSyncEntries().listen((entries) {
-      if (entries.isNotEmpty) _kick();
+      if (entries.isNotEmpty) unawaited(_kick());
     });
-    _kick();
+    unawaited(_kick());
   }
 
   void stop() {
@@ -87,30 +93,36 @@ class SyncService {
   /// synchronisée (backoff remis à zéro, y compris pour celles encore en
   /// attente de leur prochain palier) puis relance un cycle, sans attendre
   /// le prochain déclencheur réactif (reconnexion, nouvelle entrée en
-  /// file).
+  /// file). Se termine une fois le cycle achevé, pour que l'UI puisse
+  /// afficher son résultat.
   Future<void> retryNow() async {
     await db.forceRetryAllPending();
-    _kick();
+    await _kick();
   }
 
-  void _kick() {
+  /// Lance un cycle (ou en redemande un si un cycle est déjà en cours).
+  /// Le Future retourné se termine quand plus aucun cycle n'est en cours.
+  Future<void> _kick() {
     if (_running) {
       _rerunRequested = true;
-      return;
+      return _idle!.future;
     }
     _running = true;
-    unawaited(_runOnce().whenComplete(() {
-      _running = false;
-      if (_rerunRequested) {
+    final idle = _idle = Completer<void>();
+    unawaited(() async {
+      do {
         _rerunRequested = false;
-        _kick();
-      }
-    }));
+        await _runOnce();
+      } while (_rerunRequested);
+      _running = false;
+      idle.complete();
+    }());
+    return idle.future;
   }
 
   Future<void> _runOnce() async {
     try {
-      final online = await connectivity.checkNow();
+      final online = await connectivity.checkNow().timeout(networkTimeout);
       if (!online) {
         await _refreshStatus(forcedOffline: true);
         return;
@@ -130,11 +142,17 @@ class SyncService {
   Future<void> _syncOne(SyncQueueEntryRow entry) async {
     try {
       final localPayload = jsonDecode(entry.payload) as Map<String, Object?>;
-      final serverRow = await transport.pushTransaction(localPayload);
+      final serverRow = await transport.pushTransaction(localPayload).timeout(networkTimeout);
+      // Le serveur connaissait déjà cette transaction opérateur sous un
+      // autre uuid (voir sync_upsert_transaction) : on s'aligne sur son id.
+      final serverId = serverRow['id'] as String? ?? entry.entityId;
+      if (serverId != entry.entityId) {
+        await db.reassignTransactionId(entry.entityId, serverId);
+      }
       final localTs = DateTime.parse(localPayload['derniere_modification'] as String);
       final serverTsRaw = serverRow['derniere_modification'];
       if (serverTsRaw != null && DateTime.parse(serverTsRaw as String).isAfter(localTs)) {
-        await db.recordConflict(entry.entityId, localPayload, serverRow);
+        await db.recordConflict(serverId, localPayload, serverRow);
         await db.applyRemoteTransaction(MoneyTransaction.fromMap(serverRow));
       }
       await db.markSyncEntry(entry.id, status: 'synchronise');
@@ -154,7 +172,7 @@ class SyncService {
 
   Future<void> _pull() async {
     final since = await db.getLastPulledAt();
-    final rows = await transport.pullChangedSince(since);
+    final rows = await transport.pullChangedSince(since).timeout(networkTimeout);
     for (final row in rows) {
       await db.applyRemoteTransaction(MoneyTransaction.fromMap(row));
     }

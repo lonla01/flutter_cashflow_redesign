@@ -546,12 +546,49 @@ class AppDatabase {
   /// édition locale pas encore poussée).
   Future<void> applyRemoteTransaction(MoneyTransaction remote) async {
     if (kIsWeb) return;
-    final local = await (_db.select(_db.transactions)..where((t) => t.id.equals(remote.id)))
-        .getSingleOrNull();
-    if (local != null && !remote.derniereModification.isAfter(local.derniereModification)) {
-      return;
-    }
-    await _db.into(_db.transactions).insertOnConflictUpdate(_companionFromModel(remote));
+    await _db.transaction(() async {
+      var local = await (_db.select(_db.transactions)..where((t) => t.id.equals(remote.id)))
+          .getSingleOrNull();
+      // Même transaction opérateur déjà présente localement sous un autre
+      // uuid (ex. rescan SMS après réinstallation) : on adopte l'id serveur
+      // plutôt que de violer l'index unique local sur
+      // id_transaction_operateur.
+      if (local == null && remote.idTransactionOperateur != null) {
+        local = await (_db.select(_db.transactions)
+              ..where((t) => t.idTransactionOperateur.equals(remote.idTransactionOperateur!)))
+            .getSingleOrNull();
+        if (local != null) await reassignTransactionId(local.id, remote.id);
+      }
+      if (local != null && !remote.derniereModification.isAfter(local.derniereModification)) {
+        return;
+      }
+      await _db.into(_db.transactions).insertOnConflictUpdate(_companionFromModel(remote));
+    });
+  }
+
+  /// Remplace l'uuid local [oldId] d'une transaction par l'uuid [newId]
+  /// que le serveur lui connaît déjà (même id_transaction_operateur), en
+  /// réécrivant aussi les entrées `sync_queue` qui la référencent pour que
+  /// les prochains push ciblent la bonne ligne serveur.
+  Future<void> reassignTransactionId(String oldId, String newId) async {
+    if (kIsWeb || oldId == newId) return;
+    await _db.transaction(() async {
+      await (_db.update(_db.transactions)..where((t) => t.id.equals(oldId)))
+          .write(TransactionsCompanion(id: Value(newId)));
+      final entries = await (_db.select(_db.syncQueueEntries)
+            ..where((e) => e.entityId.equals(oldId)))
+          .get();
+      for (final entry in entries) {
+        final payload = jsonDecode(entry.payload) as Map<String, Object?>;
+        payload['id'] = newId;
+        await (_db.update(_db.syncQueueEntries)..where((e) => e.id.equals(entry.id))).write(
+          SyncQueueEntriesCompanion(
+            entityId: Value(newId),
+            payload: Value(jsonEncode(payload)),
+          ),
+        );
+      }
+    });
   }
 
   Future<void> recordConflict(
