@@ -67,6 +67,15 @@ void main() {
     AuthGate.current = fakeAuth;
   });
 
+  /// Le formulaire défile : dans la surface de test (800x600), le lien
+  /// "Mot de passe oublié ?" repousse les boutons du bas hors écran, d'où
+  /// un défilement préalable pour que le tap atteigne bien sa cible.
+  Future<void> tapVisible(WidgetTester tester, Finder finder) async {
+    await tester.ensureVisible(finder);
+    await tester.pump();
+    await tester.tap(finder);
+  }
+
   Future<void> pumpAuthScreen(WidgetTester tester) async {
     await tester.pumpWidget(const MaterialApp(home: AuthScreen()));
   }
@@ -86,13 +95,13 @@ void main() {
     expect(find.text('Content de vous revoir'), findsOneWidget);
     expect(find.widgetWithText(GradientButton, 'Se connecter'), findsOneWidget);
 
-    await tester.tap(find.text('Pas de compte ? Créer un compte'));
+    await tapVisible(tester, find.text('Pas de compte ? Créer un compte'));
     await tester.pump();
 
     expect(find.text('Créer un compte'), findsOneWidget);
     expect(find.widgetWithText(GradientButton, 'Créer le compte'), findsOneWidget);
 
-    await tester.tap(find.text('Déjà un compte ? Se connecter'));
+    await tapVisible(tester, find.text('Déjà un compte ? Se connecter'));
     await tester.pump();
 
     expect(find.text('Content de vous revoir'), findsOneWidget);
@@ -102,7 +111,7 @@ void main() {
     await pumpAuthScreen(tester);
     await remplirFormulaire(tester, email: 'pas-un-email');
 
-    await tester.tap(find.widgetWithText(GradientButton, 'Se connecter'));
+    await tapVisible(tester, find.widgetWithText(GradientButton, 'Se connecter'));
     await tester.pump();
 
     expect(find.text('Email invalide'), findsOneWidget);
@@ -112,7 +121,7 @@ void main() {
     await pumpAuthScreen(tester);
     await remplirFormulaire(tester, motDePasse: '123');
 
-    await tester.tap(find.widgetWithText(GradientButton, 'Se connecter'));
+    await tapVisible(tester, find.widgetWithText(GradientButton, 'Se connecter'));
     await tester.pump();
 
     expect(find.text('Au moins 6 caractères'), findsOneWidget);
@@ -122,7 +131,7 @@ void main() {
     await pumpAuthScreen(tester);
     await remplirFormulaire(tester, email: '  a@b.com  ', motDePasse: 'secret1');
 
-    await tester.tap(find.widgetWithText(GradientButton, 'Se connecter'));
+    await tapVisible(tester, find.widgetWithText(GradientButton, 'Se connecter'));
     await tester.pumpAndSettle();
 
     expect(fakeAuth.isAuthenticated, isTrue);
@@ -131,11 +140,11 @@ void main() {
 
   testWidgets('soumission valide en mode inscription (session ouverte) authentifie', (tester) async {
     await pumpAuthScreen(tester);
-    await tester.tap(find.text('Pas de compte ? Créer un compte'));
+    await tapVisible(tester, find.text('Pas de compte ? Créer un compte'));
     await tester.pump();
     await remplirFormulaire(tester);
 
-    await tester.tap(find.widgetWithText(GradientButton, 'Créer le compte'));
+    await tapVisible(tester, find.widgetWithText(GradientButton, 'Créer le compte'));
     await tester.pumpAndSettle();
 
     expect(fakeAuth.isAuthenticated, isTrue);
@@ -147,7 +156,7 @@ void main() {
     await pumpAuthScreen(tester);
     await remplirFormulaire(tester);
 
-    await tester.tap(find.widgetWithText(GradientButton, 'Se connecter'));
+    await tapVisible(tester, find.widgetWithText(GradientButton, 'Se connecter'));
     await tester.pump();
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -167,7 +176,7 @@ void main() {
     await pumpAuthScreen(tester);
     await remplirFormulaire(tester);
 
-    await tester.tap(find.widgetWithText(GradientButton, 'Se connecter'));
+    await tapVisible(tester, find.widgetWithText(GradientButton, 'Se connecter'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Invalid login credentials'), findsOneWidget);
@@ -179,11 +188,11 @@ void main() {
   testWidgets('inscription avec confirmation requise affiche l\'écran "confirmez votre email"', (tester) async {
     fakeAuth.confirmEmailOnSignUp = true;
     await pumpAuthScreen(tester);
-    await tester.tap(find.text('Pas de compte ? Créer un compte'));
+    await tapVisible(tester, find.text('Pas de compte ? Créer un compte'));
     await tester.pump();
     await remplirFormulaire(tester, email: 'nouveau@b.com');
 
-    await tester.tap(find.widgetWithText(GradientButton, 'Créer le compte'));
+    await tapVisible(tester, find.widgetWithText(GradientButton, 'Créer le compte'));
     await tester.pumpAndSettle();
 
     expect(fakeAuth.isAuthenticated, isFalse);
@@ -194,13 +203,13 @@ void main() {
   testWidgets('"Retour à la connexion" ramène au formulaire de connexion', (tester) async {
     fakeAuth.confirmEmailOnSignUp = true;
     await pumpAuthScreen(tester);
-    await tester.tap(find.text('Pas de compte ? Créer un compte'));
+    await tapVisible(tester, find.text('Pas de compte ? Créer un compte'));
     await tester.pump();
     await remplirFormulaire(tester);
-    await tester.tap(find.widgetWithText(GradientButton, 'Créer le compte'));
+    await tapVisible(tester, find.widgetWithText(GradientButton, 'Créer le compte'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(GradientButton, 'Retour à la connexion'));
+    await tapVisible(tester, find.widgetWithText(GradientButton, 'Retour à la connexion'));
     await tester.pump();
 
     expect(find.text('Content de vous revoir'), findsOneWidget);

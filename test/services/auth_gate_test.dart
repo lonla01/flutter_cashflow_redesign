@@ -20,6 +20,11 @@ void main() {
   late MockGoTrueClient mockAuth;
   late SupabaseAuthGate gate;
 
+  setUpAll(() {
+    // Requis par mocktail pour any()/captureAny() sur updateUser.
+    registerFallbackValue(UserAttributes());
+  });
+
   setUp(() {
     mockAuth = MockGoTrueClient();
     gate = SupabaseAuthGate(auth: mockAuth);
