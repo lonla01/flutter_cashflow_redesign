@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -40,6 +41,11 @@ class CashflowApp extends StatelessWidget {
       title: 'Cashflow',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
+      // Textes intégrés de Material (sélecteurs de date, boutons
+      // OK/Annuler...) en français, comme le reste de l'app.
+      locale: const Locale('fr', 'FR'),
+      supportedLocales: const [Locale('fr', 'FR')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: const _RacineApp(),
     );
   }

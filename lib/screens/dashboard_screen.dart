@@ -18,6 +18,9 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   DateTime _reference = DateTime.now();
+  // Période choisie librement en touchant l'en-tête ; null = vue mensuelle
+  // (mois de [_reference]).
+  DateTimeRange? _plage;
   List<MoneyTransaction> _toutes = [];
   bool _chargement = true;
   // null = aucun filtre (toutes les catégories du mois sont incluses).
@@ -40,9 +43,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  /// Bornes (incluses) de la période affichée.
+  (DateTime, DateTime) _bornes() {
+    final plage = _plage;
+    if (plage == null) {
+      final debut = ReportService.debutPeriode(_reference);
+      return (debut, ReportService.finPeriode(debut));
+    }
+    final debut = DateTime(plage.start.year, plage.start.month, plage.start.day);
+    final fin = DateTime(plage.end.year, plage.end.month, plage.end.day + 1)
+        .subtract(const Duration(milliseconds: 1));
+    return (debut, fin);
+  }
+
+  Future<void> _choisirPlage() async {
+    final (debut, fin) = _bornes();
+    final choix = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(DateTime.now().year + 1, 12, 31),
+      initialDateRange: DateTimeRange(start: debut, end: DateTime(fin.year, fin.month, fin.day)),
+      helpText: 'Choisir une période',
+      saveText: 'Appliquer',
+      confirmText: 'Appliquer',
+    );
+    if (choix == null) return;
+    setState(() {
+      _plage = choix;
+      _categoriesFiltre = null;
+    });
+  }
+
+  void _revenirAuMois() => setState(() {
+        _plage = null;
+        _categoriesFiltre = null;
+      });
+
   void _changerPeriode(int delta) {
     setState(() {
-      _reference = DateTime(_reference.year, _reference.month + delta, 1);
+      final plage = _plage;
+      if (plage != null) {
+        // Une période libre avance ou recule de sa propre durée.
+        final jours = plage.end.difference(plage.start).inDays + 1;
+        _plage = DateTimeRange(
+          start: DateTime(plage.start.year, plage.start.month, plage.start.day + delta * jours),
+          end: DateTime(plage.end.year, plage.end.month, plage.end.day + delta * jours),
+        );
+      } else {
+        _reference = DateTime(_reference.year, _reference.month + delta, 1);
+      }
       // Un filtre construit pour un mois n'a pas vocation à survivre au
       // changement de mois : les catégories présentes peuvent être
       // différentes d'un mois à l'autre.
@@ -113,8 +162,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     if (_chargement) return const Center(child: CircularProgressIndicator());
 
-    final debut = ReportService.debutPeriode(_reference);
-    final fin = ReportService.finPeriode(debut);
+    final (debut, fin) = _bornes();
     final transactionsDuMois = ReportService.filtrerParPeriode(_toutes, debut, fin);
     final categoriesDuMois = transactionsDuMois.map((t) => t.categorie).toSet().toList()..sort();
     final transactions = _categoriesFiltre == null
@@ -125,7 +173,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final totalDepenses = ReportService.totalDepenses(transactions);
     final totalEntrees = ReportService.totalEntrees(transactions);
     final montantFmt = NumberFormat('#,##0', 'fr_FR');
-    final periodeLabel = DateFormat('MMMM yyyy', 'fr_FR').format(debut);
+    final jour = DateFormat('dd/MM/yyyy', 'fr_FR');
+    final periodeLabel = _plage == null
+        ? _capitaliser(DateFormat('MMMM yyyy', 'fr_FR').format(debut))
+        : jour.format(debut) == jour.format(fin)
+            ? jour.format(debut)
+            : '${jour.format(debut)} – ${jour.format(fin)}';
 
     return RefreshIndicator(
       onRefresh: _charger,
@@ -149,22 +202,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _flecheMois(Icons.chevron_left, () => _changerPeriode(-1)),
-                Text(
-                  _capitaliser(periodeLabel),
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.navy900,
-                    letterSpacing: 0.2,
+                Flexible(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: _choisirPlage,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              periodeLabel,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.navy900,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(Icons.date_range, size: 18, color: AppColors.navy700),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 _flecheMois(Icons.chevron_right, () => _changerPeriode(1)),
               ],
             ),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
+              if (_plage != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: InputChip(
+                    label: const Text('Période personnalisée'),
+                    onDeleted: _revenirAuMois,
+                  ),
+                ),
               if (_categoriesFiltre != null)
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -290,7 +371,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               await Navigator.of(context).push(MaterialPageRoute(
                                 builder: (_) => ContactTransactionsScreen(
                                   contact: c.contact,
-                                  periode: _capitaliser(periodeLabel),
+                                  periode: periodeLabel,
                                   total: c.total,
                                   // Même regroupement que totauxParContact.
                                   transactions: transactions
