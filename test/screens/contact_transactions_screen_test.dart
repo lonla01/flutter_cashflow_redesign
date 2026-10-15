@@ -40,5 +40,10 @@ void main() {
 
     final tuiles = tester.widgetList<TransactionTile>(find.byType(TransactionTile)).toList();
     expect(tuiles.map((t) => t.transaction.dateTransaction.day), [9, 3]);
+
+    await tester.tap(find.byTooltip('Exporter'));
+    await tester.pumpAndSettle();
+    expect(find.text('Exporter en CSV'), findsOneWidget);
+    expect(find.text('Exporter en PDF'), findsOneWidget);
   });
 }

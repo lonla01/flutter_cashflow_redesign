@@ -13,6 +13,12 @@ class ExportService {
   static final _dateFmt = DateFormat('dd/MM/yyyy HH:mm');
   static final _montantFmt = NumberFormat('#,##0', 'fr_FR');
 
+  /// Nom de fichier sûr à partir d'un libellé libre (nom de contact,
+  /// période...) : lettres et chiffres conservés, le reste remplacé par "_".
+  static String nomDeFichier(String libelle) => libelle
+      .replaceAll(RegExp(r'[^0-9A-Za-zÀ-ÿ]+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '');
+
   static Future<File> exporterCsv(List<MoneyTransaction> transactions, String nomFichier) async {
     final rows = <List<dynamic>>[
       ['Date', 'Source', 'Type', 'Contact', 'Catégorie', 'Montant', 'Frais', 'Notes'],
@@ -78,7 +84,8 @@ class ExportService {
                       _dateFmt.format(t.dateTransaction),
                       t.contactNom ?? '',
                       t.categorie,
-                      _montantFmt.format(t.montant),
+                      // Signé comme dans l'app : "+" entrée, "-" sortie.
+                      '${t.montantSigne > 0 ? '+' : '-'}${_montantFmt.format(t.montant)}',
                     ])
                 .toList(),
           ),

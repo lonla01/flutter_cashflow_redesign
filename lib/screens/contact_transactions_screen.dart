@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/transaction.dart';
+import '../services/export_service.dart';
 import '../widgets/gradient_app_bar.dart';
 import '../widgets/transaction_tile.dart';
 import 'transaction_detail_screen.dart';
+
+enum _Format { csv, pdf }
 
 /// Transactions échangées avec un contact, ouvertes depuis la liste
 /// "Par contact / destinataire" du tableau de bord. Reçoit exactement les
@@ -28,6 +31,21 @@ class ContactTransactionsScreen extends StatelessWidget {
   final double total;
   final List<MoneyTransaction> transactions;
 
+  /// Exporte exactement la liste affichée (même période, même filtre de
+  /// catégories que le tableau de bord), puis ouvre le partage.
+  Future<void> _exporter(BuildContext context, _Format format, List<MoneyTransaction> liste) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final nom = ExportService.nomDeFichier('transactions_${contact}_$periode');
+    try {
+      final fichier = format == _Format.csv
+          ? await ExportService.exporterCsv(liste, nom)
+          : await ExportService.exporterPdf(liste, 'Transactions avec $contact - $periode', nom);
+      await ExportService.partager(fichier);
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text("Export impossible : $e")));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final triees = [...transactions]
@@ -40,7 +58,27 @@ class ContactTransactionsScreen extends StatelessWidget {
             : null;
 
     return Scaffold(
-      appBar: GradientAppBar(title: contact),
+      appBar: GradientAppBar(
+        title: contact,
+        actions: [
+          PopupMenuButton<_Format>(
+            icon: const Icon(Icons.ios_share),
+            tooltip: 'Exporter',
+            enabled: triees.isNotEmpty,
+            onSelected: (format) => _exporter(context, format, triees),
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: _Format.csv,
+                child: ListTile(leading: Icon(Icons.table_chart), title: Text('Exporter en CSV')),
+              ),
+              PopupMenuItem(
+                value: _Format.pdf,
+                child: ListTile(leading: Icon(Icons.picture_as_pdf), title: Text('Exporter en PDF')),
+              ),
+            ],
+          ),
+        ],
+      ),
       body: ListView.separated(
         padding: const EdgeInsets.all(12),
         itemCount: triees.length + 1,
