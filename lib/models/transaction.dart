@@ -50,6 +50,16 @@ String sourceLabel(TransactionSource s) => switch (s) {
       TransactionSource.manuel => 'Saisie manuelle',
     };
 
+/// Libellé affiché à l'utilisateur (saisie manuelle, rapports).
+String typeLabel(TransactionType t) => switch (t) {
+      TransactionType.transfertEnvoye => 'Transfert envoyé',
+      TransactionType.depotRecu => 'Dépôt reçu',
+      TransactionType.retrait => 'Retrait',
+      TransactionType.paiementMarchand => 'Paiement marchand',
+      TransactionType.reception => 'Réception',
+      TransactionType.paiementService => 'Paiement de service',
+    };
+
 String typeToString(TransactionType t) => switch (t) {
       TransactionType.transfertEnvoye => 'transfert_envoye',
       TransactionType.depotRecu => 'depot_recu',

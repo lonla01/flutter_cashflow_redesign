@@ -234,7 +234,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               decoration: const InputDecoration(labelText: 'Type'),
               items: TransactionType.values
                   .map((t) =>
-                      DropdownMenuItem(value: t, child: Text(_libelleType(t))))
+                      DropdownMenuItem(value: t, child: Text(typeLabel(t))))
                   .toList(),
               onChanged: (v) => setState(() => _type = v ?? _type),
             ),
@@ -321,13 +321,4 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       ),
     );
   }
-
-  String _libelleType(TransactionType t) => switch (t) {
-        TransactionType.transfertEnvoye => 'Transfert envoyé',
-        TransactionType.depotRecu => 'Dépôt reçu',
-        TransactionType.retrait => 'Retrait',
-        TransactionType.paiementMarchand => 'Paiement marchand',
-        TransactionType.reception => 'Réception',
-        TransactionType.paiementService => 'Paiement de service',
-      };
 }

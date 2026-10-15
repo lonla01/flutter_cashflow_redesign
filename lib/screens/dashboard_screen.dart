@@ -8,6 +8,7 @@ import '../services/export_service.dart';
 import '../services/report_service.dart';
 import '../theme/app_theme.dart';
 import 'contact_transactions_screen.dart';
+import 'custom_report_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -406,6 +407,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
           const SizedBox(height: 24),
+
+          FilledButton.tonalIcon(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => CustomReportScreen(
+                periodeInitiale: DateTimeRange(
+                  start: debut,
+                  end: DateTime(fin.year, fin.month, fin.day),
+                ),
+              ),
+            )),
+            icon: const Icon(Icons.tune),
+            label: const Text('Rapport personnalisé'),
+          ),
+          const SizedBox(height: 12),
 
           Row(
             children: [
