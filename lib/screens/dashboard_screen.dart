@@ -279,9 +279,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _totalCard('Dépensé', totalDepenses, Icons.arrow_upward, Colors.redAccent.shade100, montantFmt),
+                _totalCard('Dépensé', totalDepenses, Colors.redAccent.shade100, montantFmt),
                 Container(width: 1, height: 40, color: Colors.white24),
-                _totalCard('Reçu', totalEntrees, Icons.arrow_downward, Colors.greenAccent.shade100, montantFmt),
+                _totalCard('Reçu', totalEntrees, Colors.greenAccent.shade100, montantFmt),
               ],
             ),
           ),
@@ -458,21 +458,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _totalCard(String label, double montant, IconData icon, Color accent, NumberFormat fmt) {
+  /// [accent] : rouge pour les sorties, vert pour les entrées, comme
+  /// partout ailleurs dans l'app.
+  Widget _totalCard(String label, double montant, Color accent, NumberFormat fmt) {
     return Column(
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: accent),
-            const SizedBox(width: 4),
-            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-          ],
-        ),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
         const SizedBox(height: 6),
         Text(
           '${fmt.format(montant)} FCFA',
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
+          style: TextStyle(color: accent, fontWeight: FontWeight.w700, fontSize: 18),
         ),
       ],
     );

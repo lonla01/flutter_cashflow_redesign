@@ -39,16 +39,11 @@ class TransactionTile extends StatelessWidget {
         onTap: onTap,
         onLongPress: onLongPress,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        // Le sens (entrée/sortie) est porté par la couleur et le signe du
+        // montant ; pas d'icône de flèche en doublon.
         leading: modeSelection
             ? Checkbox(value: selectionnee, onChanged: (_) => onTap())
-            : CircleAvatar(
-                radius: 22,
-                backgroundColor: couleur.withValues(alpha: 0.12),
-                child: Icon(
-                  estEntree ? Icons.arrow_downward : Icons.arrow_upward,
-                  color: couleur,
-                ),
-              ),
+            : null,
         title: Text(
           transaction.contactNom ?? 'Contact inconnu',
           style: const TextStyle(fontWeight: FontWeight.w600),
