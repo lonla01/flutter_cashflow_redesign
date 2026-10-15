@@ -56,6 +56,8 @@ dependencies:
   # lib/services/ai_model.dart). Déjà tiré en transitif par d'autres
   # plugins, listé ici explicitement car utilisé directement par l'app.
   shared_preferences: ^2.3.2
+  pdfrx: ^2.4.8
+  file_picker: ^10.2.4
 
 dev_dependencies:
   flutter_test:

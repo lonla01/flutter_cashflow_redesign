@@ -1,9 +1,12 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../db/app_database.dart';
 import '../parsing/sms_listener.dart';
 import '../services/categorization_service.dart';
+import '../services/momo_statement_import_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_app_bar.dart';
 import 'ai_model_screen.dart';
@@ -22,6 +25,54 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _scanEnCours = false;
+  bool _importEnCours = false;
+
+  Future<void> _importerReleveMomo() async {
+    final choix = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['pdf'],
+      withData: true,
+    );
+    final octets = choix?.files.single.bytes;
+    if (octets == null) return;
+
+    setState(() => _importEnCours = true);
+    try {
+      final resume = await MomoStatementImportService(
+        AppDatabase.instance,
+        CategorizationService(AppDatabase.instance),
+      ).importer(octets);
+      if (!mounted) return;
+      final jour = DateFormat('dd/MM/yyyy');
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Relevé importé'),
+          content: Text(
+            '${resume.lues} transactions lues, du ${jour.format(resume.debut)} '
+            'au ${jour.format(resume.fin)}.\n\n'
+            '${resume.importees} ajoutée(s), ${resume.dejaPresentes} déjà présente(s).'
+            '${resume.incoherencesSolde > 0 ? '\n\nAttention : ${resume.incoherencesSolde} '
+                'incohérence(s) de solde détectée(s), certaines lignes ont peut-être été '
+                'mal lues. Vérifiez-les dans la liste.' : ''}',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Import impossible : $e")),
+      );
+    } finally {
+      if (mounted) setState(() => _importEnCours = false);
+    }
+  }
 
   Future<void> _rescannerSms() async {
     if (kIsWeb) {
@@ -99,6 +150,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   )
                 : null,
             onTap: _scanEnCours ? null : _rescannerSms,
+          ),
+          const SizedBox(height: 12),
+          _SettingsRow(
+            icon: Icons.picture_as_pdf_outlined,
+            title: 'Importer un relevé MTN MoMo',
+            subtitle: _importEnCours
+                ? 'Lecture du relevé en cours...'
+                : "Relevé PDF exporté depuis l'app MoMo (ex. sur iPhone)",
+            trailing: _importEnCours
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
+            onTap: _importEnCours ? null : _importerReleveMomo,
           ),
           const SizedBox(height: 12),
           _SettingsRow(
