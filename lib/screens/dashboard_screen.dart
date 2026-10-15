@@ -286,9 +286,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             dense: true,
                             contentPadding: EdgeInsets.zero,
                             title: Text(c.contact, style: const TextStyle(fontWeight: FontWeight.w500)),
+                            // Mêmes conventions que TransactionTile : vert
+                            // et "+" pour une entrée nette, rouge et "-"
+                            // pour une sortie nette.
                             trailing: Text(
-                              '${montantFmt.format(c.total)} FCFA',
-                              style: const TextStyle(fontWeight: FontWeight.w600),
+                              '${c.total > 0 ? '+' : c.total < 0 ? '-' : ''}'
+                              '${montantFmt.format(c.total.abs())} FCFA',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: c.total > 0
+                                    ? Colors.green.shade700
+                                    : c.total < 0
+                                        ? Colors.red.shade700
+                                        : null,
+                              ),
                             ),
                           ))
                       .toList(),

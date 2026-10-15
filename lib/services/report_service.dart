@@ -8,7 +8,10 @@ class CategorieTotal {
 
 class ContactTotal {
   final String contact;
-  final double total; // valeur absolue échangée avec ce contact
+  /// Solde net avec ce contact : reçu moins envoyé (frais inclus côté
+  /// envoi, voir MoneyTransaction.montantSigne). Positif si ce contact vous
+  /// a versé plus qu'il n'a reçu.
+  final double total;
   ContactTotal(this.contact, this.total);
 }
 
@@ -54,10 +57,11 @@ class ReportService {
     for (final t in transactions) {
       final nom = t.contactNom?.trim();
       if (nom == null || nom.isEmpty) continue;
-      map[nom] = (map[nom] ?? 0) + t.montantNet;
+      map[nom] = (map[nom] ?? 0) + t.montantSigne;
     }
     final liste = map.entries.map((e) => ContactTotal(e.key, e.value)).toList();
-    liste.sort((a, b) => b.total.compareTo(a.total));
+    // Les contacts les plus significatifs d'abord, dans un sens ou l'autre.
+    liste.sort((a, b) => b.total.abs().compareTo(a.total.abs()));
     return liste;
   }
 
