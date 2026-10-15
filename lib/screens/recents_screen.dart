@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../db/app_database.dart';
 import '../models/transaction.dart';
+import '../widgets/swipe_to_delete.dart';
 import '../widgets/transaction_tile.dart';
 import 'transaction_detail_screen.dart';
 
@@ -18,9 +19,13 @@ class RecentsScreen extends StatefulWidget {
 
 class _RecentsScreenState extends State<RecentsScreen> {
   final ScrollController _scrollController = ScrollController();
-  late final Stream<List<MoneyTransaction>> _transactions = AppDatabase
-      .instance
-      .watchTransactions(from: DateTime.now().subtract(const Duration(days: 30)));
+  // Transactions glissées hors de la liste : Dismissible exige qu'elles
+  // disparaissent immédiatement, sans attendre la prochaine émission du
+  // stream.
+  final Set<String> _masquees = {};
+  late final Stream<List<MoneyTransaction>> _transactions = AppDatabase.instance
+      .watchTransactions(
+          from: DateTime.now().subtract(const Duration(days: 30)));
 
   @override
   void dispose() {
@@ -36,10 +41,12 @@ class _RecentsScreenState extends State<RecentsScreen> {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        final transactions = snapshot.data!;
+        final transactions =
+            snapshot.data!.where((t) => !_masquees.contains(t.id)).toList();
         if (transactions.isEmpty) {
           return const Center(
-              child: Text('Aucune transaction au cours des 30 derniers jours.'));
+              child:
+                  Text('Aucune transaction au cours des 30 derniers jours.'));
         }
         return Scrollbar(
           controller: _scrollController,
@@ -52,12 +59,21 @@ class _RecentsScreenState extends State<RecentsScreen> {
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final tx = transactions[index];
-              return TransactionTile(
+              return SwipeToDelete(
                 transaction: tx,
-                onLongPress: () {},
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => TransactionDetailScreen(transaction: tx),
-                )),
+                onDismissed: () {
+                  setState(() => _masquees.add(tx.id));
+                  supprimerAvecAnnulation(context, tx, onRestored: () {
+                    if (mounted) setState(() => _masquees.remove(tx.id));
+                  });
+                },
+                child: TransactionTile(
+                  transaction: tx,
+                  onLongPress: () {},
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => TransactionDetailScreen(transaction: tx),
+                  )),
+                ),
               );
             },
           ),

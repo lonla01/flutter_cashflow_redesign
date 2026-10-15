@@ -289,6 +289,15 @@ class AppDatabase {
     });
   }
 
+  /// Annule une suppression (bouton "Annuler" après un glisser pour
+  /// supprimer) : la transaction est réinsérée avec une date de
+  /// modification plus récente que sa pierre tombale, donc elle l'emporte
+  /// aussi côté serveur et sur les autres appareils (last-write-wins).
+  Future<void> restoreTransaction(MoneyTransaction tx) async {
+    tx.derniereModification = DateTime.now();
+    await insertTransactionIfNew(tx);
+  }
+
   Future<void> deleteAllTransactions() async {
     if (kIsWeb) {
       _memTransactions.clear();

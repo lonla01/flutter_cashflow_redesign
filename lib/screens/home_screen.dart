@@ -4,6 +4,7 @@ import '../db/app_database.dart';
 import '../models/transaction.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_fab.dart';
+import '../widgets/swipe_to_delete.dart';
 import '../widgets/transaction_tile.dart';
 import 'add_transaction_screen.dart';
 import 'transaction_detail_screen.dart';
@@ -163,23 +164,37 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const SizedBox(height: 8),
                             itemBuilder: (context, index) {
                               final tx = _filtrees[index];
-                              return TransactionTile(
+                              return SwipeToDelete(
                                 transaction: tx,
-                                modeSelection: _modeSelection,
-                                selectionnee: _selection.contains(tx.id),
-                                onLongPress: () => _basculerSelection(tx.id),
-                                onTap: () async {
-                                  if (_modeSelection) {
-                                    _basculerSelection(tx.id);
-                                    return;
-                                  }
-                                  await Navigator.of(context)
-                                      .push(MaterialPageRoute(
-                                    builder: (_) => TransactionDetailScreen(
-                                        transaction: tx),
-                                  ));
-                                  _charger();
+                                enabled: !_modeSelection,
+                                onDismissed: () {
+                                  setState(() {
+                                    _toutes.removeWhere((t) => t.id == tx.id);
+                                    _filtrees.removeWhere((t) => t.id == tx.id);
+                                  });
+                                  supprimerAvecAnnulation(context, tx,
+                                      onRestored: () {
+                                    if (mounted) _charger();
+                                  });
                                 },
+                                child: TransactionTile(
+                                  transaction: tx,
+                                  modeSelection: _modeSelection,
+                                  selectionnee: _selection.contains(tx.id),
+                                  onLongPress: () => _basculerSelection(tx.id),
+                                  onTap: () async {
+                                    if (_modeSelection) {
+                                      _basculerSelection(tx.id);
+                                      return;
+                                    }
+                                    await Navigator.of(context)
+                                        .push(MaterialPageRoute(
+                                      builder: (_) => TransactionDetailScreen(
+                                          transaction: tx),
+                                    ));
+                                    _charger();
+                                  },
+                                ),
                               );
                             },
                           ),
