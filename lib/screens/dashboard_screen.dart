@@ -7,6 +7,7 @@ import '../models/transaction.dart';
 import '../services/export_service.dart';
 import '../services/report_service.dart';
 import '../theme/app_theme.dart';
+import 'contact_transactions_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -285,6 +286,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       .map((c) => ListTile(
                             dense: true,
                             contentPadding: EdgeInsets.zero,
+                            onTap: () async {
+                              await Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => ContactTransactionsScreen(
+                                  contact: c.contact,
+                                  periode: _capitaliser(periodeLabel),
+                                  total: c.total,
+                                  // Même regroupement que totauxParContact.
+                                  transactions: transactions
+                                      .where((t) => t.contactNom?.trim() == c.contact)
+                                      .toList(),
+                                ),
+                              ));
+                              // Une transaction a pu être modifiée depuis
+                              // son détail.
+                              _charger();
+                            },
                             title: Text(c.contact, style: const TextStyle(fontWeight: FontWeight.w500)),
                             // Mêmes conventions que TransactionTile : vert
                             // et "+" pour une entrée nette, rouge et "-"
