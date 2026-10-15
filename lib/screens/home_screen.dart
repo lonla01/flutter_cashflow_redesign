@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:intl/intl.dart';
+
 import '../db/app_database.dart';
 import '../models/transaction.dart';
 import '../theme/app_theme.dart';
@@ -144,6 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 8),
+          if (_categorieFiltre != null && !_chargement) _totalCategorie(),
           Expanded(
             child: _chargement
                 ? const Center(child: CircularProgressIndicator())
@@ -243,6 +246,53 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: TextStyle(color: Colors.white)),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Total de la catégorie sélectionnée, calculé sur la liste affichée
+  /// (recherche par contact comprise) : solde net en vert/rouge, et le
+  /// détail dépensé/reçu quand la catégorie contient les deux sens.
+  Widget _totalCategorie() {
+    final fmt = NumberFormat('#,##0', 'fr_FR');
+    var depense = 0.0;
+    var recu = 0.0;
+    for (final t in _filtrees) {
+      final s = t.montantSigne;
+      if (s < 0) {
+        depense -= s;
+      } else {
+        recu += s;
+      }
+    }
+    final net = recu - depense;
+    final nb = _filtrees.length;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: ListTile(
+          dense: true,
+          title: Text(
+            '$_categorieFiltre · $nb transaction${nb > 1 ? 's' : ''}',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          subtitle: depense > 0 && recu > 0
+              ? Text('Dépensé ${fmt.format(depense)} · Reçu ${fmt.format(recu)} FCFA')
+              : null,
+          trailing: Text(
+            '${net > 0 ? '+' : net < 0 ? '-' : ''}${fmt.format(net.abs())} FCFA',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              color: net > 0
+                  ? Colors.green.shade700
+                  : net < 0
+                      ? Colors.red.shade700
+                      : null,
+            ),
           ),
         ),
       ),
