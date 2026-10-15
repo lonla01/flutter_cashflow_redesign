@@ -64,6 +64,10 @@ Future<void> supprimerAvecAnnulation(
     ..showSnackBar(SnackBar(
       content:
           Text('Transaction "${tx.contactNom ?? 'Contact inconnu'}" supprimée'),
+      // Avec une action, une SnackBar reste affichée par défaut jusqu'à
+      // fermeture manuelle : on limite l'annulation à 30 secondes.
+      duration: const Duration(seconds: 30),
+      persist: false,
       action: SnackBarAction(
         label: 'Annuler',
         onPressed: () async {

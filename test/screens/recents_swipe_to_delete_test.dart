@@ -54,4 +54,28 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(Duration.zero);
   });
+
+  testWidgets('le message d\'annulation disparaît au bout de 30 secondes', (tester) async {
+    final tx = buildTransaction(contactNom: 'Boutique Swipe');
+    await tester.runAsync(() => AppDatabase.instance.insertTransactionIfNew(tx));
+
+    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: RecentsScreen())));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pump();
+
+    await tester.drag(find.byType(TransactionTile), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pump();
+    expect(find.text('Annuler'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 29));
+    expect(find.text('Annuler'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(find.text('Annuler'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(Duration.zero);
+  });
 }
