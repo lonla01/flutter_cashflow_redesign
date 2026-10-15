@@ -28,24 +28,31 @@ class Transactions extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Règles de catégorisation apprises. Synchronisées vers Supabase
+/// (table category_rules) sous l'identité (matchType, matchValue) — l'id
+/// auto-incrémenté reste purement local.
 @DataClassName('CategoryRuleRow')
 class CategoryRules extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get matchType => text()();
   TextColumn get matchValue => text()();
   TextColumn get categorie => text()();
+  // Défaut "plus ancien que tout" pour les lignes antérieures au schéma
+  // v3 : SQLite n'accepte qu'une constante pour un ADD COLUMN.
+  DateTimeColumn get derniereModification => dateTime().withDefault(Constant(DateTime.fromMillisecondsSinceEpoch(0)))();
 }
 
 /// Catégories proposées à l'utilisateur (écran Réglages > Catégories).
-/// Seedée avec [categoriesParDefaut] à la création de la base ; purement
-/// une liste de choix pour la saisie, jamais synchronisée vers Supabase
-/// (même raisonnement que [CategoryRules]) : le champ `categorie` d'une
-/// transaction reste une simple chaîne libre, donc supprimer une catégorie
-/// d'ici ne modifie jamais les transactions qui l'utilisent déjà.
+/// Seedée avec [categoriesParDefaut] à la création de la base, puis
+/// synchronisée vers Supabase (table categories) sous l'identité
+/// `lower(nom)`. Le champ `categorie` d'une transaction reste une simple
+/// chaîne libre, donc supprimer une catégorie d'ici ne modifie jamais les
+/// transactions qui l'utilisent déjà.
 @DataClassName('CategoryRow')
 class Categories extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get nom => text()();
+  DateTimeColumn get derniereModification => dateTime().withDefault(Constant(DateTime.fromMillisecondsSinceEpoch(0)))();
 
   @override
   List<Set<Column>> get uniqueKeys => [
@@ -54,12 +61,18 @@ class Categories extends Table {
 }
 
 /// File d'attente de synchronisation : une entrée par écriture locale
-/// (nouvelle transaction ou édition) en attente de propagation vers
+/// (création, édition ou suppression) en attente de propagation vers
 /// Supabase. Voir [lib/services/sync_service.dart].
 @DataClassName('SyncQueueEntryRow')
 class SyncQueueEntries extends Table {
   IntColumn get id => integer().autoIncrement()();
+  // transaction | category | category_rule (voir SyncEntity)
+  TextColumn get entityType => text().withDefault(const Constant('transaction'))();
+  // uuid pour une transaction, clé naturelle pour les autres (voir
+  // AppDatabase.categoryKey / ruleKey).
   TextColumn get entityId => text()();
+  // upsert | delete — la suppression voyage comme une pierre tombale
+  // (`supprime: true` dans le payload).
   TextColumn get operation => text().withDefault(const Constant('upsert'))();
   TextColumn get payload => text()();
   DateTimeColumn get createdAt => dateTime()();
@@ -83,12 +96,15 @@ class ConflictHistoryEntries extends Table {
   DateTimeColumn get detectedAt => dateTime()();
 }
 
-/// Table mono-ligne (id fixe = 0) de métadonnées de synchronisation.
-@DataClassName('SyncMetaRow')
-class SyncMetaTable extends Table {
-  IntColumn get id => integer()();
-  DateTimeColumn get lastPulledAt => dateTime().nullable()();
+/// Curseur de pull par type d'entité : (synced_at, clé) de la dernière
+/// ligne serveur reçue. synced_at est conservé tel que formaté pour la
+/// requête (UTC, microsecondes) afin de ne rien perdre en précision.
+@DataClassName('SyncCursorRow')
+class SyncCursors extends Table {
+  TextColumn get entityType => text()();
+  TextColumn get syncedAt => text()();
+  TextColumn get cle => text()();
 
   @override
-  Set<Column> get primaryKey => {id};
+  Set<Column> get primaryKey => {entityType};
 }

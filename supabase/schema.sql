@@ -30,7 +30,14 @@ create table public.transactions (
   statut_edition text not null default 'auto'
     check (statut_edition in ('auto','edite_manuellement')),
   derniere_modification timestamptz not null,
-  inserted_at timestamptz not null default now()
+  -- Pierre tombale : une suppression locale est synchronisée comme une
+  -- écriture last-write-wins ordinaire, pour que les autres appareils la
+  -- voient au pull.
+  supprime boolean not null default false,
+  inserted_at timestamptz not null default now(),
+  -- Horodatage serveur de la dernière écriture acceptée : curseur du pull
+  -- (voir SyncService._pull), indépendant de l'horloge des appareils.
+  synced_at timestamptz not null default now()
 );
 
 -- Dédup par utilisateur, miroir de l'index partiel local sur
@@ -41,6 +48,9 @@ create unique index transactions_user_operateur_id_key
 
 create index transactions_user_id_derniere_modification_idx
   on public.transactions (user_id, derniere_modification);
+
+create index transactions_user_id_synced_at_idx
+  on public.transactions (user_id, synced_at, id);
 
 -- === Row Level Security ===
 
@@ -98,7 +108,8 @@ begin
   insert into public.transactions (
     id, user_id, source, type, montant, frais, montant_net, solde_apres,
     contact_nom, contact_numero, categorie, date_transaction,
-    id_transaction_operateur, sms_brut, notes, statut_edition, derniere_modification
+    id_transaction_operateur, sms_brut, notes, statut_edition,
+    derniere_modification, supprime
   ) values (
     (payload->>'id')::uuid,
     auth.uid(),
@@ -116,7 +127,8 @@ begin
     payload->>'sms_brut',
     coalesce(payload->>'notes', ''),
     coalesce(payload->>'statut_edition', 'auto'),
-    (payload->>'derniere_modification')::timestamptz
+    (payload->>'derniere_modification')::timestamptz,
+    coalesce((payload->>'supprime')::boolean, false)
   )
   on conflict (id) do update set
     source = excluded.source,
@@ -133,7 +145,9 @@ begin
     sms_brut = excluded.sms_brut,
     notes = excluded.notes,
     statut_edition = excluded.statut_edition,
-    derniere_modification = excluded.derniere_modification
+    derniere_modification = excluded.derniere_modification,
+    supprime = excluded.supprime,
+    synced_at = now()
   where excluded.derniere_modification > public.transactions.derniere_modification
     and public.transactions.user_id = auth.uid()
   returning * into result;
@@ -155,6 +169,129 @@ $$;
 
 revoke all on function public.sync_upsert_transaction(jsonb) from public;
 grant execute on function public.sync_upsert_transaction(jsonb) to authenticated;
+
+-- === Catégories ===
+
+create table public.categories (
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  cle text not null,
+  nom text not null,
+  supprime boolean not null default false,
+  derniere_modification timestamptz not null,
+  synced_at timestamptz not null default now(),
+  primary key (user_id, cle)
+);
+
+create index categories_user_id_synced_at_idx
+  on public.categories (user_id, synced_at, cle);
+
+alter table public.categories enable row level security;
+
+-- Lecture seule en direct : toute écriture passe par le RPC ci-dessous,
+-- qui applique last-write-wins côté serveur.
+create policy "select own categories" on public.categories
+  for select using (auth.uid() = user_id);
+
+create or replace function public.sync_upsert_category(payload jsonb)
+returns public.categories
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  result public.categories;
+  k text := lower(payload->>'nom');
+begin
+  insert into public.categories (user_id, cle, nom, supprime, derniere_modification)
+  values (
+    auth.uid(),
+    k,
+    payload->>'nom',
+    coalesce((payload->>'supprime')::boolean, false),
+    (payload->>'derniere_modification')::timestamptz
+  )
+  on conflict (user_id, cle) do update set
+    nom = excluded.nom,
+    supprime = excluded.supprime,
+    derniere_modification = excluded.derniere_modification,
+    synced_at = now()
+  where excluded.derniere_modification > public.categories.derniere_modification
+  returning * into result;
+
+  if result.cle is null then
+    select * into result from public.categories
+      where user_id = auth.uid() and cle = k;
+  end if;
+
+  return result;
+end;
+$$;
+
+revoke all on function public.sync_upsert_category(jsonb) from public;
+grant execute on function public.sync_upsert_category(jsonb) to authenticated;
+
+-- === Règles de catégorisation ===
+
+create table public.category_rules (
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  cle text not null,
+  match_type text not null,
+  match_value text not null,
+  categorie text not null,
+  supprime boolean not null default false,
+  derniere_modification timestamptz not null,
+  synced_at timestamptz not null default now(),
+  primary key (user_id, cle)
+);
+
+create index category_rules_user_id_synced_at_idx
+  on public.category_rules (user_id, synced_at, cle);
+
+alter table public.category_rules enable row level security;
+
+create policy "select own category rules" on public.category_rules
+  for select using (auth.uid() = user_id);
+
+create or replace function public.sync_upsert_category_rule(payload jsonb)
+returns public.category_rules
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  result public.category_rules;
+  k text := (payload->>'match_type') || ':' || (payload->>'match_value');
+begin
+  insert into public.category_rules (
+    user_id, cle, match_type, match_value, categorie, supprime, derniere_modification
+  ) values (
+    auth.uid(),
+    k,
+    payload->>'match_type',
+    payload->>'match_value',
+    payload->>'categorie',
+    coalesce((payload->>'supprime')::boolean, false),
+    (payload->>'derniere_modification')::timestamptz
+  )
+  on conflict (user_id, cle) do update set
+    categorie = excluded.categorie,
+    supprime = excluded.supprime,
+    derniere_modification = excluded.derniere_modification,
+    synced_at = now()
+  where excluded.derniere_modification > public.category_rules.derniere_modification
+  returning * into result;
+
+  if result.cle is null then
+    select * into result from public.category_rules
+      where user_id = auth.uid() and cle = k;
+  end if;
+
+  return result;
+end;
+$$;
+
+revoke all on function public.sync_upsert_category_rule(jsonb) from public;
+grant execute on function public.sync_upsert_category_rule(jsonb) to authenticated;
 
 -- === Journal des essais d'extraction de reçu (voir migration
 -- 20260916000000_add_receipt_scan_logs.sql pour le détail) ===

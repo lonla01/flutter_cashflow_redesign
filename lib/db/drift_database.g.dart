@@ -824,8 +824,17 @@ class $CategoryRulesTable extends CategoryRules
   late final GeneratedColumn<String> categorie = GeneratedColumn<String>(
       'categorie', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _derniereModificationMeta =
+      const VerificationMeta('derniereModification');
   @override
-  List<GeneratedColumn> get $columns => [id, matchType, matchValue, categorie];
+  late final GeneratedColumn<DateTime> derniereModification =
+      GeneratedColumn<DateTime>('derniere_modification', aliasedName, false,
+          type: DriftSqlType.dateTime,
+          requiredDuringInsert: false,
+          defaultValue: Constant(DateTime.fromMillisecondsSinceEpoch(0)));
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, matchType, matchValue, categorie, derniereModification];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -859,6 +868,12 @@ class $CategoryRulesTable extends CategoryRules
     } else if (isInserting) {
       context.missing(_categorieMeta);
     }
+    if (data.containsKey('derniere_modification')) {
+      context.handle(
+          _derniereModificationMeta,
+          derniereModification.isAcceptableOrUnknown(
+              data['derniere_modification']!, _derniereModificationMeta));
+    }
     return context;
   }
 
@@ -876,6 +891,9 @@ class $CategoryRulesTable extends CategoryRules
           .read(DriftSqlType.string, data['${effectivePrefix}match_value'])!,
       categorie: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}categorie'])!,
+      derniereModification: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime,
+          data['${effectivePrefix}derniere_modification'])!,
     );
   }
 
@@ -890,11 +908,13 @@ class CategoryRuleRow extends DataClass implements Insertable<CategoryRuleRow> {
   final String matchType;
   final String matchValue;
   final String categorie;
+  final DateTime derniereModification;
   const CategoryRuleRow(
       {required this.id,
       required this.matchType,
       required this.matchValue,
-      required this.categorie});
+      required this.categorie,
+      required this.derniereModification});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -902,6 +922,7 @@ class CategoryRuleRow extends DataClass implements Insertable<CategoryRuleRow> {
     map['match_type'] = Variable<String>(matchType);
     map['match_value'] = Variable<String>(matchValue);
     map['categorie'] = Variable<String>(categorie);
+    map['derniere_modification'] = Variable<DateTime>(derniereModification);
     return map;
   }
 
@@ -911,6 +932,7 @@ class CategoryRuleRow extends DataClass implements Insertable<CategoryRuleRow> {
       matchType: Value(matchType),
       matchValue: Value(matchValue),
       categorie: Value(categorie),
+      derniereModification: Value(derniereModification),
     );
   }
 
@@ -922,6 +944,8 @@ class CategoryRuleRow extends DataClass implements Insertable<CategoryRuleRow> {
       matchType: serializer.fromJson<String>(json['matchType']),
       matchValue: serializer.fromJson<String>(json['matchValue']),
       categorie: serializer.fromJson<String>(json['categorie']),
+      derniereModification:
+          serializer.fromJson<DateTime>(json['derniereModification']),
     );
   }
   @override
@@ -932,6 +956,7 @@ class CategoryRuleRow extends DataClass implements Insertable<CategoryRuleRow> {
       'matchType': serializer.toJson<String>(matchType),
       'matchValue': serializer.toJson<String>(matchValue),
       'categorie': serializer.toJson<String>(categorie),
+      'derniereModification': serializer.toJson<DateTime>(derniereModification),
     };
   }
 
@@ -939,12 +964,14 @@ class CategoryRuleRow extends DataClass implements Insertable<CategoryRuleRow> {
           {int? id,
           String? matchType,
           String? matchValue,
-          String? categorie}) =>
+          String? categorie,
+          DateTime? derniereModification}) =>
       CategoryRuleRow(
         id: id ?? this.id,
         matchType: matchType ?? this.matchType,
         matchValue: matchValue ?? this.matchValue,
         categorie: categorie ?? this.categorie,
+        derniereModification: derniereModification ?? this.derniereModification,
       );
   CategoryRuleRow copyWithCompanion(CategoryRulesCompanion data) {
     return CategoryRuleRow(
@@ -953,6 +980,9 @@ class CategoryRuleRow extends DataClass implements Insertable<CategoryRuleRow> {
       matchValue:
           data.matchValue.present ? data.matchValue.value : this.matchValue,
       categorie: data.categorie.present ? data.categorie.value : this.categorie,
+      derniereModification: data.derniereModification.present
+          ? data.derniereModification.value
+          : this.derniereModification,
     );
   }
 
@@ -962,13 +992,15 @@ class CategoryRuleRow extends DataClass implements Insertable<CategoryRuleRow> {
           ..write('id: $id, ')
           ..write('matchType: $matchType, ')
           ..write('matchValue: $matchValue, ')
-          ..write('categorie: $categorie')
+          ..write('categorie: $categorie, ')
+          ..write('derniereModification: $derniereModification')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, matchType, matchValue, categorie);
+  int get hashCode =>
+      Object.hash(id, matchType, matchValue, categorie, derniereModification);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -976,7 +1008,8 @@ class CategoryRuleRow extends DataClass implements Insertable<CategoryRuleRow> {
           other.id == this.id &&
           other.matchType == this.matchType &&
           other.matchValue == this.matchValue &&
-          other.categorie == this.categorie);
+          other.categorie == this.categorie &&
+          other.derniereModification == this.derniereModification);
 }
 
 class CategoryRulesCompanion extends UpdateCompanion<CategoryRuleRow> {
@@ -984,17 +1017,20 @@ class CategoryRulesCompanion extends UpdateCompanion<CategoryRuleRow> {
   final Value<String> matchType;
   final Value<String> matchValue;
   final Value<String> categorie;
+  final Value<DateTime> derniereModification;
   const CategoryRulesCompanion({
     this.id = const Value.absent(),
     this.matchType = const Value.absent(),
     this.matchValue = const Value.absent(),
     this.categorie = const Value.absent(),
+    this.derniereModification = const Value.absent(),
   });
   CategoryRulesCompanion.insert({
     this.id = const Value.absent(),
     required String matchType,
     required String matchValue,
     required String categorie,
+    this.derniereModification = const Value.absent(),
   })  : matchType = Value(matchType),
         matchValue = Value(matchValue),
         categorie = Value(categorie);
@@ -1003,12 +1039,15 @@ class CategoryRulesCompanion extends UpdateCompanion<CategoryRuleRow> {
     Expression<String>? matchType,
     Expression<String>? matchValue,
     Expression<String>? categorie,
+    Expression<DateTime>? derniereModification,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (matchType != null) 'match_type': matchType,
       if (matchValue != null) 'match_value': matchValue,
       if (categorie != null) 'categorie': categorie,
+      if (derniereModification != null)
+        'derniere_modification': derniereModification,
     });
   }
 
@@ -1016,12 +1055,14 @@ class CategoryRulesCompanion extends UpdateCompanion<CategoryRuleRow> {
       {Value<int>? id,
       Value<String>? matchType,
       Value<String>? matchValue,
-      Value<String>? categorie}) {
+      Value<String>? categorie,
+      Value<DateTime>? derniereModification}) {
     return CategoryRulesCompanion(
       id: id ?? this.id,
       matchType: matchType ?? this.matchType,
       matchValue: matchValue ?? this.matchValue,
       categorie: categorie ?? this.categorie,
+      derniereModification: derniereModification ?? this.derniereModification,
     );
   }
 
@@ -1040,6 +1081,10 @@ class CategoryRulesCompanion extends UpdateCompanion<CategoryRuleRow> {
     if (categorie.present) {
       map['categorie'] = Variable<String>(categorie.value);
     }
+    if (derniereModification.present) {
+      map['derniere_modification'] =
+          Variable<DateTime>(derniereModification.value);
+    }
     return map;
   }
 
@@ -1049,7 +1094,8 @@ class CategoryRulesCompanion extends UpdateCompanion<CategoryRuleRow> {
           ..write('id: $id, ')
           ..write('matchType: $matchType, ')
           ..write('matchValue: $matchValue, ')
-          ..write('categorie: $categorie')
+          ..write('categorie: $categorie, ')
+          ..write('derniereModification: $derniereModification')
           ..write(')'))
         .toString();
   }
@@ -1075,8 +1121,16 @@ class $CategoriesTable extends Categories
   late final GeneratedColumn<String> nom = GeneratedColumn<String>(
       'nom', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _derniereModificationMeta =
+      const VerificationMeta('derniereModification');
   @override
-  List<GeneratedColumn> get $columns => [id, nom];
+  late final GeneratedColumn<DateTime> derniereModification =
+      GeneratedColumn<DateTime>('derniere_modification', aliasedName, false,
+          type: DriftSqlType.dateTime,
+          requiredDuringInsert: false,
+          defaultValue: Constant(DateTime.fromMillisecondsSinceEpoch(0)));
+  @override
+  List<GeneratedColumn> get $columns => [id, nom, derniereModification];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1096,6 +1150,12 @@ class $CategoriesTable extends Categories
     } else if (isInserting) {
       context.missing(_nomMeta);
     }
+    if (data.containsKey('derniere_modification')) {
+      context.handle(
+          _derniereModificationMeta,
+          derniereModification.isAcceptableOrUnknown(
+              data['derniere_modification']!, _derniereModificationMeta));
+    }
     return context;
   }
 
@@ -1113,6 +1173,9 @@ class $CategoriesTable extends Categories
           .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
       nom: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}nom'])!,
+      derniereModification: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime,
+          data['${effectivePrefix}derniere_modification'])!,
     );
   }
 
@@ -1125,12 +1188,17 @@ class $CategoriesTable extends Categories
 class CategoryRow extends DataClass implements Insertable<CategoryRow> {
   final int id;
   final String nom;
-  const CategoryRow({required this.id, required this.nom});
+  final DateTime derniereModification;
+  const CategoryRow(
+      {required this.id,
+      required this.nom,
+      required this.derniereModification});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['nom'] = Variable<String>(nom);
+    map['derniere_modification'] = Variable<DateTime>(derniereModification);
     return map;
   }
 
@@ -1138,6 +1206,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     return CategoriesCompanion(
       id: Value(id),
       nom: Value(nom),
+      derniereModification: Value(derniereModification),
     );
   }
 
@@ -1147,6 +1216,8 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     return CategoryRow(
       id: serializer.fromJson<int>(json['id']),
       nom: serializer.fromJson<String>(json['nom']),
+      derniereModification:
+          serializer.fromJson<DateTime>(json['derniereModification']),
     );
   }
   @override
@@ -1155,17 +1226,24 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'nom': serializer.toJson<String>(nom),
+      'derniereModification': serializer.toJson<DateTime>(derniereModification),
     };
   }
 
-  CategoryRow copyWith({int? id, String? nom}) => CategoryRow(
+  CategoryRow copyWith(
+          {int? id, String? nom, DateTime? derniereModification}) =>
+      CategoryRow(
         id: id ?? this.id,
         nom: nom ?? this.nom,
+        derniereModification: derniereModification ?? this.derniereModification,
       );
   CategoryRow copyWithCompanion(CategoriesCompanion data) {
     return CategoryRow(
       id: data.id.present ? data.id.value : this.id,
       nom: data.nom.present ? data.nom.value : this.nom,
+      derniereModification: data.derniereModification.present
+          ? data.derniereModification.value
+          : this.derniereModification,
     );
   }
 
@@ -1173,44 +1251,58 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
   String toString() {
     return (StringBuffer('CategoryRow(')
           ..write('id: $id, ')
-          ..write('nom: $nom')
+          ..write('nom: $nom, ')
+          ..write('derniereModification: $derniereModification')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, nom);
+  int get hashCode => Object.hash(id, nom, derniereModification);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is CategoryRow && other.id == this.id && other.nom == this.nom);
+      (other is CategoryRow &&
+          other.id == this.id &&
+          other.nom == this.nom &&
+          other.derniereModification == this.derniereModification);
 }
 
 class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
   final Value<int> id;
   final Value<String> nom;
+  final Value<DateTime> derniereModification;
   const CategoriesCompanion({
     this.id = const Value.absent(),
     this.nom = const Value.absent(),
+    this.derniereModification = const Value.absent(),
   });
   CategoriesCompanion.insert({
     this.id = const Value.absent(),
     required String nom,
+    this.derniereModification = const Value.absent(),
   }) : nom = Value(nom);
   static Insertable<CategoryRow> custom({
     Expression<int>? id,
     Expression<String>? nom,
+    Expression<DateTime>? derniereModification,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (nom != null) 'nom': nom,
+      if (derniereModification != null)
+        'derniere_modification': derniereModification,
     });
   }
 
-  CategoriesCompanion copyWith({Value<int>? id, Value<String>? nom}) {
+  CategoriesCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? nom,
+      Value<DateTime>? derniereModification}) {
     return CategoriesCompanion(
       id: id ?? this.id,
       nom: nom ?? this.nom,
+      derniereModification: derniereModification ?? this.derniereModification,
     );
   }
 
@@ -1223,6 +1315,10 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     if (nom.present) {
       map['nom'] = Variable<String>(nom.value);
     }
+    if (derniereModification.present) {
+      map['derniere_modification'] =
+          Variable<DateTime>(derniereModification.value);
+    }
     return map;
   }
 
@@ -1230,7 +1326,8 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
   String toString() {
     return (StringBuffer('CategoriesCompanion(')
           ..write('id: $id, ')
-          ..write('nom: $nom')
+          ..write('nom: $nom, ')
+          ..write('derniereModification: $derniereModification')
           ..write(')'))
         .toString();
   }
@@ -1251,6 +1348,14 @@ class $SyncQueueEntriesTable extends SyncQueueEntries
       requiredDuringInsert: false,
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _entityTypeMeta =
+      const VerificationMeta('entityType');
+  @override
+  late final GeneratedColumn<String> entityType = GeneratedColumn<String>(
+      'entity_type', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('transaction'));
   static const VerificationMeta _entityIdMeta =
       const VerificationMeta('entityId');
   @override
@@ -1313,6 +1418,7 @@ class $SyncQueueEntriesTable extends SyncQueueEntries
   @override
   List<GeneratedColumn> get $columns => [
         id,
+        entityType,
         entityId,
         operation,
         payload,
@@ -1335,6 +1441,12 @@ class $SyncQueueEntriesTable extends SyncQueueEntries
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('entity_type')) {
+      context.handle(
+          _entityTypeMeta,
+          entityType.isAcceptableOrUnknown(
+              data['entity_type']!, _entityTypeMeta));
     }
     if (data.containsKey('entity_id')) {
       context.handle(_entityIdMeta,
@@ -1395,6 +1507,8 @@ class $SyncQueueEntriesTable extends SyncQueueEntries
     return SyncQueueEntryRow(
       id: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      entityType: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}entity_type'])!,
       entityId: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}entity_id'])!,
       operation: attachedDatabase.typeMapping
@@ -1425,6 +1539,7 @@ class $SyncQueueEntriesTable extends SyncQueueEntries
 class SyncQueueEntryRow extends DataClass
     implements Insertable<SyncQueueEntryRow> {
   final int id;
+  final String entityType;
   final String entityId;
   final String operation;
   final String payload;
@@ -1436,6 +1551,7 @@ class SyncQueueEntryRow extends DataClass
   final DateTime? nextAttemptAt;
   const SyncQueueEntryRow(
       {required this.id,
+      required this.entityType,
       required this.entityId,
       required this.operation,
       required this.payload,
@@ -1449,6 +1565,7 @@ class SyncQueueEntryRow extends DataClass
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
+    map['entity_type'] = Variable<String>(entityType);
     map['entity_id'] = Variable<String>(entityId);
     map['operation'] = Variable<String>(operation);
     map['payload'] = Variable<String>(payload);
@@ -1468,6 +1585,7 @@ class SyncQueueEntryRow extends DataClass
   SyncQueueEntriesCompanion toCompanion(bool nullToAbsent) {
     return SyncQueueEntriesCompanion(
       id: Value(id),
+      entityType: Value(entityType),
       entityId: Value(entityId),
       operation: Value(operation),
       payload: Value(payload),
@@ -1489,6 +1607,7 @@ class SyncQueueEntryRow extends DataClass
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return SyncQueueEntryRow(
       id: serializer.fromJson<int>(json['id']),
+      entityType: serializer.fromJson<String>(json['entityType']),
       entityId: serializer.fromJson<String>(json['entityId']),
       operation: serializer.fromJson<String>(json['operation']),
       payload: serializer.fromJson<String>(json['payload']),
@@ -1505,6 +1624,7 @@ class SyncQueueEntryRow extends DataClass
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
+      'entityType': serializer.toJson<String>(entityType),
       'entityId': serializer.toJson<String>(entityId),
       'operation': serializer.toJson<String>(operation),
       'payload': serializer.toJson<String>(payload),
@@ -1519,6 +1639,7 @@ class SyncQueueEntryRow extends DataClass
 
   SyncQueueEntryRow copyWith(
           {int? id,
+          String? entityType,
           String? entityId,
           String? operation,
           String? payload,
@@ -1530,6 +1651,7 @@ class SyncQueueEntryRow extends DataClass
           Value<DateTime?> nextAttemptAt = const Value.absent()}) =>
       SyncQueueEntryRow(
         id: id ?? this.id,
+        entityType: entityType ?? this.entityType,
         entityId: entityId ?? this.entityId,
         operation: operation ?? this.operation,
         payload: payload ?? this.payload,
@@ -1544,6 +1666,8 @@ class SyncQueueEntryRow extends DataClass
   SyncQueueEntryRow copyWithCompanion(SyncQueueEntriesCompanion data) {
     return SyncQueueEntryRow(
       id: data.id.present ? data.id.value : this.id,
+      entityType:
+          data.entityType.present ? data.entityType.value : this.entityType,
       entityId: data.entityId.present ? data.entityId.value : this.entityId,
       operation: data.operation.present ? data.operation.value : this.operation,
       payload: data.payload.present ? data.payload.value : this.payload,
@@ -1564,6 +1688,7 @@ class SyncQueueEntryRow extends DataClass
   String toString() {
     return (StringBuffer('SyncQueueEntryRow(')
           ..write('id: $id, ')
+          ..write('entityType: $entityType, ')
           ..write('entityId: $entityId, ')
           ..write('operation: $operation, ')
           ..write('payload: $payload, ')
@@ -1578,13 +1703,14 @@ class SyncQueueEntryRow extends DataClass
   }
 
   @override
-  int get hashCode => Object.hash(id, entityId, operation, payload, createdAt,
-      updatedAt, status, attemptCount, lastError, nextAttemptAt);
+  int get hashCode => Object.hash(id, entityType, entityId, operation, payload,
+      createdAt, updatedAt, status, attemptCount, lastError, nextAttemptAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is SyncQueueEntryRow &&
           other.id == this.id &&
+          other.entityType == this.entityType &&
           other.entityId == this.entityId &&
           other.operation == this.operation &&
           other.payload == this.payload &&
@@ -1598,6 +1724,7 @@ class SyncQueueEntryRow extends DataClass
 
 class SyncQueueEntriesCompanion extends UpdateCompanion<SyncQueueEntryRow> {
   final Value<int> id;
+  final Value<String> entityType;
   final Value<String> entityId;
   final Value<String> operation;
   final Value<String> payload;
@@ -1609,6 +1736,7 @@ class SyncQueueEntriesCompanion extends UpdateCompanion<SyncQueueEntryRow> {
   final Value<DateTime?> nextAttemptAt;
   const SyncQueueEntriesCompanion({
     this.id = const Value.absent(),
+    this.entityType = const Value.absent(),
     this.entityId = const Value.absent(),
     this.operation = const Value.absent(),
     this.payload = const Value.absent(),
@@ -1621,6 +1749,7 @@ class SyncQueueEntriesCompanion extends UpdateCompanion<SyncQueueEntryRow> {
   });
   SyncQueueEntriesCompanion.insert({
     this.id = const Value.absent(),
+    this.entityType = const Value.absent(),
     required String entityId,
     this.operation = const Value.absent(),
     required String payload,
@@ -1636,6 +1765,7 @@ class SyncQueueEntriesCompanion extends UpdateCompanion<SyncQueueEntryRow> {
         updatedAt = Value(updatedAt);
   static Insertable<SyncQueueEntryRow> custom({
     Expression<int>? id,
+    Expression<String>? entityType,
     Expression<String>? entityId,
     Expression<String>? operation,
     Expression<String>? payload,
@@ -1648,6 +1778,7 @@ class SyncQueueEntriesCompanion extends UpdateCompanion<SyncQueueEntryRow> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (entityType != null) 'entity_type': entityType,
       if (entityId != null) 'entity_id': entityId,
       if (operation != null) 'operation': operation,
       if (payload != null) 'payload': payload,
@@ -1662,6 +1793,7 @@ class SyncQueueEntriesCompanion extends UpdateCompanion<SyncQueueEntryRow> {
 
   SyncQueueEntriesCompanion copyWith(
       {Value<int>? id,
+      Value<String>? entityType,
       Value<String>? entityId,
       Value<String>? operation,
       Value<String>? payload,
@@ -1673,6 +1805,7 @@ class SyncQueueEntriesCompanion extends UpdateCompanion<SyncQueueEntryRow> {
       Value<DateTime?>? nextAttemptAt}) {
     return SyncQueueEntriesCompanion(
       id: id ?? this.id,
+      entityType: entityType ?? this.entityType,
       entityId: entityId ?? this.entityId,
       operation: operation ?? this.operation,
       payload: payload ?? this.payload,
@@ -1690,6 +1823,9 @@ class SyncQueueEntriesCompanion extends UpdateCompanion<SyncQueueEntryRow> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<int>(id.value);
+    }
+    if (entityType.present) {
+      map['entity_type'] = Variable<String>(entityType.value);
     }
     if (entityId.present) {
       map['entity_id'] = Variable<String>(entityId.value);
@@ -1725,6 +1861,7 @@ class SyncQueueEntriesCompanion extends UpdateCompanion<SyncQueueEntryRow> {
   String toString() {
     return (StringBuffer('SyncQueueEntriesCompanion(')
           ..write('id: $id, ')
+          ..write('entityType: $entityType, ')
           ..write('entityId: $entityId, ')
           ..write('operation: $operation, ')
           ..write('payload: $payload, ')
@@ -2056,187 +2193,234 @@ class ConflictHistoryEntriesCompanion
   }
 }
 
-class $SyncMetaTableTable extends SyncMetaTable
-    with TableInfo<$SyncMetaTableTable, SyncMetaRow> {
+class $SyncCursorsTable extends SyncCursors
+    with TableInfo<$SyncCursorsTable, SyncCursorRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $SyncMetaTableTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  $SyncCursorsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _entityTypeMeta =
+      const VerificationMeta('entityType');
   @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
-      'id', aliasedName, false,
-      type: DriftSqlType.int, requiredDuringInsert: false);
-  static const VerificationMeta _lastPulledAtMeta =
-      const VerificationMeta('lastPulledAt');
+  late final GeneratedColumn<String> entityType = GeneratedColumn<String>(
+      'entity_type', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _syncedAtMeta =
+      const VerificationMeta('syncedAt');
   @override
-  late final GeneratedColumn<DateTime> lastPulledAt = GeneratedColumn<DateTime>(
-      'last_pulled_at', aliasedName, true,
-      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  late final GeneratedColumn<String> syncedAt = GeneratedColumn<String>(
+      'synced_at', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _cleMeta = const VerificationMeta('cle');
   @override
-  List<GeneratedColumn> get $columns => [id, lastPulledAt];
+  late final GeneratedColumn<String> cle = GeneratedColumn<String>(
+      'cle', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [entityType, syncedAt, cle];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
-  static const String $name = 'sync_meta_table';
+  static const String $name = 'sync_cursors';
   @override
-  VerificationContext validateIntegrity(Insertable<SyncMetaRow> instance,
+  VerificationContext validateIntegrity(Insertable<SyncCursorRow> instance,
       {bool isInserting = false}) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    }
-    if (data.containsKey('last_pulled_at')) {
+    if (data.containsKey('entity_type')) {
       context.handle(
-          _lastPulledAtMeta,
-          lastPulledAt.isAcceptableOrUnknown(
-              data['last_pulled_at']!, _lastPulledAtMeta));
+          _entityTypeMeta,
+          entityType.isAcceptableOrUnknown(
+              data['entity_type']!, _entityTypeMeta));
+    } else if (isInserting) {
+      context.missing(_entityTypeMeta);
+    }
+    if (data.containsKey('synced_at')) {
+      context.handle(_syncedAtMeta,
+          syncedAt.isAcceptableOrUnknown(data['synced_at']!, _syncedAtMeta));
+    } else if (isInserting) {
+      context.missing(_syncedAtMeta);
+    }
+    if (data.containsKey('cle')) {
+      context.handle(
+          _cleMeta, cle.isAcceptableOrUnknown(data['cle']!, _cleMeta));
+    } else if (isInserting) {
+      context.missing(_cleMeta);
     }
     return context;
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {id};
+  Set<GeneratedColumn> get $primaryKey => {entityType};
   @override
-  SyncMetaRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+  SyncCursorRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return SyncMetaRow(
-      id: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
-      lastPulledAt: attachedDatabase.typeMapping.read(
-          DriftSqlType.dateTime, data['${effectivePrefix}last_pulled_at']),
+    return SyncCursorRow(
+      entityType: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}entity_type'])!,
+      syncedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}synced_at'])!,
+      cle: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}cle'])!,
     );
   }
 
   @override
-  $SyncMetaTableTable createAlias(String alias) {
-    return $SyncMetaTableTable(attachedDatabase, alias);
+  $SyncCursorsTable createAlias(String alias) {
+    return $SyncCursorsTable(attachedDatabase, alias);
   }
 }
 
-class SyncMetaRow extends DataClass implements Insertable<SyncMetaRow> {
-  final int id;
-  final DateTime? lastPulledAt;
-  const SyncMetaRow({required this.id, this.lastPulledAt});
+class SyncCursorRow extends DataClass implements Insertable<SyncCursorRow> {
+  final String entityType;
+  final String syncedAt;
+  final String cle;
+  const SyncCursorRow(
+      {required this.entityType, required this.syncedAt, required this.cle});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
-    if (!nullToAbsent || lastPulledAt != null) {
-      map['last_pulled_at'] = Variable<DateTime>(lastPulledAt);
-    }
+    map['entity_type'] = Variable<String>(entityType);
+    map['synced_at'] = Variable<String>(syncedAt);
+    map['cle'] = Variable<String>(cle);
     return map;
   }
 
-  SyncMetaTableCompanion toCompanion(bool nullToAbsent) {
-    return SyncMetaTableCompanion(
-      id: Value(id),
-      lastPulledAt: lastPulledAt == null && nullToAbsent
-          ? const Value.absent()
-          : Value(lastPulledAt),
+  SyncCursorsCompanion toCompanion(bool nullToAbsent) {
+    return SyncCursorsCompanion(
+      entityType: Value(entityType),
+      syncedAt: Value(syncedAt),
+      cle: Value(cle),
     );
   }
 
-  factory SyncMetaRow.fromJson(Map<String, dynamic> json,
+  factory SyncCursorRow.fromJson(Map<String, dynamic> json,
       {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return SyncMetaRow(
-      id: serializer.fromJson<int>(json['id']),
-      lastPulledAt: serializer.fromJson<DateTime?>(json['lastPulledAt']),
+    return SyncCursorRow(
+      entityType: serializer.fromJson<String>(json['entityType']),
+      syncedAt: serializer.fromJson<String>(json['syncedAt']),
+      cle: serializer.fromJson<String>(json['cle']),
     );
   }
   @override
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
-      'lastPulledAt': serializer.toJson<DateTime?>(lastPulledAt),
+      'entityType': serializer.toJson<String>(entityType),
+      'syncedAt': serializer.toJson<String>(syncedAt),
+      'cle': serializer.toJson<String>(cle),
     };
   }
 
-  SyncMetaRow copyWith(
-          {int? id, Value<DateTime?> lastPulledAt = const Value.absent()}) =>
-      SyncMetaRow(
-        id: id ?? this.id,
-        lastPulledAt:
-            lastPulledAt.present ? lastPulledAt.value : this.lastPulledAt,
+  SyncCursorRow copyWith({String? entityType, String? syncedAt, String? cle}) =>
+      SyncCursorRow(
+        entityType: entityType ?? this.entityType,
+        syncedAt: syncedAt ?? this.syncedAt,
+        cle: cle ?? this.cle,
       );
-  SyncMetaRow copyWithCompanion(SyncMetaTableCompanion data) {
-    return SyncMetaRow(
-      id: data.id.present ? data.id.value : this.id,
-      lastPulledAt: data.lastPulledAt.present
-          ? data.lastPulledAt.value
-          : this.lastPulledAt,
+  SyncCursorRow copyWithCompanion(SyncCursorsCompanion data) {
+    return SyncCursorRow(
+      entityType:
+          data.entityType.present ? data.entityType.value : this.entityType,
+      syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
+      cle: data.cle.present ? data.cle.value : this.cle,
     );
   }
 
   @override
   String toString() {
-    return (StringBuffer('SyncMetaRow(')
-          ..write('id: $id, ')
-          ..write('lastPulledAt: $lastPulledAt')
+    return (StringBuffer('SyncCursorRow(')
+          ..write('entityType: $entityType, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('cle: $cle')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, lastPulledAt);
+  int get hashCode => Object.hash(entityType, syncedAt, cle);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is SyncMetaRow &&
-          other.id == this.id &&
-          other.lastPulledAt == this.lastPulledAt);
+      (other is SyncCursorRow &&
+          other.entityType == this.entityType &&
+          other.syncedAt == this.syncedAt &&
+          other.cle == this.cle);
 }
 
-class SyncMetaTableCompanion extends UpdateCompanion<SyncMetaRow> {
-  final Value<int> id;
-  final Value<DateTime?> lastPulledAt;
-  const SyncMetaTableCompanion({
-    this.id = const Value.absent(),
-    this.lastPulledAt = const Value.absent(),
+class SyncCursorsCompanion extends UpdateCompanion<SyncCursorRow> {
+  final Value<String> entityType;
+  final Value<String> syncedAt;
+  final Value<String> cle;
+  final Value<int> rowid;
+  const SyncCursorsCompanion({
+    this.entityType = const Value.absent(),
+    this.syncedAt = const Value.absent(),
+    this.cle = const Value.absent(),
+    this.rowid = const Value.absent(),
   });
-  SyncMetaTableCompanion.insert({
-    this.id = const Value.absent(),
-    this.lastPulledAt = const Value.absent(),
-  });
-  static Insertable<SyncMetaRow> custom({
-    Expression<int>? id,
-    Expression<DateTime>? lastPulledAt,
+  SyncCursorsCompanion.insert({
+    required String entityType,
+    required String syncedAt,
+    required String cle,
+    this.rowid = const Value.absent(),
+  })  : entityType = Value(entityType),
+        syncedAt = Value(syncedAt),
+        cle = Value(cle);
+  static Insertable<SyncCursorRow> custom({
+    Expression<String>? entityType,
+    Expression<String>? syncedAt,
+    Expression<String>? cle,
+    Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (lastPulledAt != null) 'last_pulled_at': lastPulledAt,
+      if (entityType != null) 'entity_type': entityType,
+      if (syncedAt != null) 'synced_at': syncedAt,
+      if (cle != null) 'cle': cle,
+      if (rowid != null) 'rowid': rowid,
     });
   }
 
-  SyncMetaTableCompanion copyWith(
-      {Value<int>? id, Value<DateTime?>? lastPulledAt}) {
-    return SyncMetaTableCompanion(
-      id: id ?? this.id,
-      lastPulledAt: lastPulledAt ?? this.lastPulledAt,
+  SyncCursorsCompanion copyWith(
+      {Value<String>? entityType,
+      Value<String>? syncedAt,
+      Value<String>? cle,
+      Value<int>? rowid}) {
+    return SyncCursorsCompanion(
+      entityType: entityType ?? this.entityType,
+      syncedAt: syncedAt ?? this.syncedAt,
+      cle: cle ?? this.cle,
+      rowid: rowid ?? this.rowid,
     );
   }
 
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<int>(id.value);
+    if (entityType.present) {
+      map['entity_type'] = Variable<String>(entityType.value);
     }
-    if (lastPulledAt.present) {
-      map['last_pulled_at'] = Variable<DateTime>(lastPulledAt.value);
+    if (syncedAt.present) {
+      map['synced_at'] = Variable<String>(syncedAt.value);
+    }
+    if (cle.present) {
+      map['cle'] = Variable<String>(cle.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
     }
     return map;
   }
 
   @override
   String toString() {
-    return (StringBuffer('SyncMetaTableCompanion(')
-          ..write('id: $id, ')
-          ..write('lastPulledAt: $lastPulledAt')
+    return (StringBuffer('SyncCursorsCompanion(')
+          ..write('entityType: $entityType, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('cle: $cle, ')
+          ..write('rowid: $rowid')
           ..write(')'))
         .toString();
   }
@@ -2252,7 +2436,7 @@ abstract class _$AppDatabaseDrift extends GeneratedDatabase {
       $SyncQueueEntriesTable(this);
   late final $ConflictHistoryEntriesTable conflictHistoryEntries =
       $ConflictHistoryEntriesTable(this);
-  late final $SyncMetaTableTable syncMetaTable = $SyncMetaTableTable(this);
+  late final $SyncCursorsTable syncCursors = $SyncCursorsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2263,7 +2447,7 @@ abstract class _$AppDatabaseDrift extends GeneratedDatabase {
         categories,
         syncQueueEntries,
         conflictHistoryEntries,
-        syncMetaTable
+        syncCursors
       ];
 }
 
@@ -2624,6 +2808,7 @@ typedef $$CategoryRulesTableCreateCompanionBuilder = CategoryRulesCompanion
   required String matchType,
   required String matchValue,
   required String categorie,
+  Value<DateTime> derniereModification,
 });
 typedef $$CategoryRulesTableUpdateCompanionBuilder = CategoryRulesCompanion
     Function({
@@ -2631,6 +2816,7 @@ typedef $$CategoryRulesTableUpdateCompanionBuilder = CategoryRulesCompanion
   Value<String> matchType,
   Value<String> matchValue,
   Value<String> categorie,
+  Value<DateTime> derniereModification,
 });
 
 class $$CategoryRulesTableFilterComposer
@@ -2653,6 +2839,10 @@ class $$CategoryRulesTableFilterComposer
 
   ColumnFilters<String> get categorie => $composableBuilder(
       column: $table.categorie, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get derniereModification => $composableBuilder(
+      column: $table.derniereModification,
+      builder: (column) => ColumnFilters(column));
 }
 
 class $$CategoryRulesTableOrderingComposer
@@ -2675,6 +2865,10 @@ class $$CategoryRulesTableOrderingComposer
 
   ColumnOrderings<String> get categorie => $composableBuilder(
       column: $table.categorie, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get derniereModification => $composableBuilder(
+      column: $table.derniereModification,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$CategoryRulesTableAnnotationComposer
@@ -2697,6 +2891,9 @@ class $$CategoryRulesTableAnnotationComposer
 
   GeneratedColumn<String> get categorie =>
       $composableBuilder(column: $table.categorie, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get derniereModification => $composableBuilder(
+      column: $table.derniereModification, builder: (column) => column);
 }
 
 class $$CategoryRulesTableTableManager extends RootTableManager<
@@ -2730,24 +2927,28 @@ class $$CategoryRulesTableTableManager extends RootTableManager<
             Value<String> matchType = const Value.absent(),
             Value<String> matchValue = const Value.absent(),
             Value<String> categorie = const Value.absent(),
+            Value<DateTime> derniereModification = const Value.absent(),
           }) =>
               CategoryRulesCompanion(
             id: id,
             matchType: matchType,
             matchValue: matchValue,
             categorie: categorie,
+            derniereModification: derniereModification,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
             required String matchType,
             required String matchValue,
             required String categorie,
+            Value<DateTime> derniereModification = const Value.absent(),
           }) =>
               CategoryRulesCompanion.insert(
             id: id,
             matchType: matchType,
             matchValue: matchValue,
             categorie: categorie,
+            derniereModification: derniereModification,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (
@@ -2778,10 +2979,12 @@ typedef $$CategoryRulesTableProcessedTableManager = ProcessedTableManager<
 typedef $$CategoriesTableCreateCompanionBuilder = CategoriesCompanion Function({
   Value<int> id,
   required String nom,
+  Value<DateTime> derniereModification,
 });
 typedef $$CategoriesTableUpdateCompanionBuilder = CategoriesCompanion Function({
   Value<int> id,
   Value<String> nom,
+  Value<DateTime> derniereModification,
 });
 
 class $$CategoriesTableFilterComposer
@@ -2798,6 +3001,10 @@ class $$CategoriesTableFilterComposer
 
   ColumnFilters<String> get nom => $composableBuilder(
       column: $table.nom, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get derniereModification => $composableBuilder(
+      column: $table.derniereModification,
+      builder: (column) => ColumnFilters(column));
 }
 
 class $$CategoriesTableOrderingComposer
@@ -2814,6 +3021,10 @@ class $$CategoriesTableOrderingComposer
 
   ColumnOrderings<String> get nom => $composableBuilder(
       column: $table.nom, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get derniereModification => $composableBuilder(
+      column: $table.derniereModification,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$CategoriesTableAnnotationComposer
@@ -2830,6 +3041,9 @@ class $$CategoriesTableAnnotationComposer
 
   GeneratedColumn<String> get nom =>
       $composableBuilder(column: $table.nom, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get derniereModification => $composableBuilder(
+      column: $table.derniereModification, builder: (column) => column);
 }
 
 class $$CategoriesTableTableManager extends RootTableManager<
@@ -2860,18 +3074,22 @@ class $$CategoriesTableTableManager extends RootTableManager<
           updateCompanionCallback: ({
             Value<int> id = const Value.absent(),
             Value<String> nom = const Value.absent(),
+            Value<DateTime> derniereModification = const Value.absent(),
           }) =>
               CategoriesCompanion(
             id: id,
             nom: nom,
+            derniereModification: derniereModification,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
             required String nom,
+            Value<DateTime> derniereModification = const Value.absent(),
           }) =>
               CategoriesCompanion.insert(
             id: id,
             nom: nom,
+            derniereModification: derniereModification,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (
@@ -2902,6 +3120,7 @@ typedef $$CategoriesTableProcessedTableManager = ProcessedTableManager<
 typedef $$SyncQueueEntriesTableCreateCompanionBuilder
     = SyncQueueEntriesCompanion Function({
   Value<int> id,
+  Value<String> entityType,
   required String entityId,
   Value<String> operation,
   required String payload,
@@ -2915,6 +3134,7 @@ typedef $$SyncQueueEntriesTableCreateCompanionBuilder
 typedef $$SyncQueueEntriesTableUpdateCompanionBuilder
     = SyncQueueEntriesCompanion Function({
   Value<int> id,
+  Value<String> entityType,
   Value<String> entityId,
   Value<String> operation,
   Value<String> payload,
@@ -2937,6 +3157,9 @@ class $$SyncQueueEntriesTableFilterComposer
   });
   ColumnFilters<int> get id => $composableBuilder(
       column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get entityType => $composableBuilder(
+      column: $table.entityType, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get entityId => $composableBuilder(
       column: $table.entityId, builder: (column) => ColumnFilters(column));
@@ -2977,6 +3200,9 @@ class $$SyncQueueEntriesTableOrderingComposer
   });
   ColumnOrderings<int> get id => $composableBuilder(
       column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get entityType => $composableBuilder(
+      column: $table.entityType, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get entityId => $composableBuilder(
       column: $table.entityId, builder: (column) => ColumnOrderings(column));
@@ -3019,6 +3245,9 @@ class $$SyncQueueEntriesTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get entityType => $composableBuilder(
+      column: $table.entityType, builder: (column) => column);
 
   GeneratedColumn<String> get entityId =>
       $composableBuilder(column: $table.entityId, builder: (column) => column);
@@ -3077,6 +3306,7 @@ class $$SyncQueueEntriesTableTableManager extends RootTableManager<
               $$SyncQueueEntriesTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback: ({
             Value<int> id = const Value.absent(),
+            Value<String> entityType = const Value.absent(),
             Value<String> entityId = const Value.absent(),
             Value<String> operation = const Value.absent(),
             Value<String> payload = const Value.absent(),
@@ -3089,6 +3319,7 @@ class $$SyncQueueEntriesTableTableManager extends RootTableManager<
           }) =>
               SyncQueueEntriesCompanion(
             id: id,
+            entityType: entityType,
             entityId: entityId,
             operation: operation,
             payload: payload,
@@ -3101,6 +3332,7 @@ class $$SyncQueueEntriesTableTableManager extends RootTableManager<
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
+            Value<String> entityType = const Value.absent(),
             required String entityId,
             Value<String> operation = const Value.absent(),
             required String payload,
@@ -3113,6 +3345,7 @@ class $$SyncQueueEntriesTableTableManager extends RootTableManager<
           }) =>
               SyncQueueEntriesCompanion.insert(
             id: id,
+            entityType: entityType,
             entityId: entityId,
             operation: operation,
             payload: payload,
@@ -3337,133 +3570,152 @@ typedef $$ConflictHistoryEntriesTableProcessedTableManager
         ),
         ConflictHistoryRow,
         PrefetchHooks Function()>;
-typedef $$SyncMetaTableTableCreateCompanionBuilder = SyncMetaTableCompanion
+typedef $$SyncCursorsTableCreateCompanionBuilder = SyncCursorsCompanion
     Function({
-  Value<int> id,
-  Value<DateTime?> lastPulledAt,
+  required String entityType,
+  required String syncedAt,
+  required String cle,
+  Value<int> rowid,
 });
-typedef $$SyncMetaTableTableUpdateCompanionBuilder = SyncMetaTableCompanion
+typedef $$SyncCursorsTableUpdateCompanionBuilder = SyncCursorsCompanion
     Function({
-  Value<int> id,
-  Value<DateTime?> lastPulledAt,
+  Value<String> entityType,
+  Value<String> syncedAt,
+  Value<String> cle,
+  Value<int> rowid,
 });
 
-class $$SyncMetaTableTableFilterComposer
-    extends Composer<_$AppDatabaseDrift, $SyncMetaTableTable> {
-  $$SyncMetaTableTableFilterComposer({
+class $$SyncCursorsTableFilterComposer
+    extends Composer<_$AppDatabaseDrift, $SyncCursorsTable> {
+  $$SyncCursorsTableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<int> get id => $composableBuilder(
-      column: $table.id, builder: (column) => ColumnFilters(column));
+  ColumnFilters<String> get entityType => $composableBuilder(
+      column: $table.entityType, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<DateTime> get lastPulledAt => $composableBuilder(
-      column: $table.lastPulledAt, builder: (column) => ColumnFilters(column));
+  ColumnFilters<String> get syncedAt => $composableBuilder(
+      column: $table.syncedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get cle => $composableBuilder(
+      column: $table.cle, builder: (column) => ColumnFilters(column));
 }
 
-class $$SyncMetaTableTableOrderingComposer
-    extends Composer<_$AppDatabaseDrift, $SyncMetaTableTable> {
-  $$SyncMetaTableTableOrderingComposer({
+class $$SyncCursorsTableOrderingComposer
+    extends Composer<_$AppDatabaseDrift, $SyncCursorsTable> {
+  $$SyncCursorsTableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<int> get id => $composableBuilder(
-      column: $table.id, builder: (column) => ColumnOrderings(column));
+  ColumnOrderings<String> get entityType => $composableBuilder(
+      column: $table.entityType, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<DateTime> get lastPulledAt => $composableBuilder(
-      column: $table.lastPulledAt,
-      builder: (column) => ColumnOrderings(column));
+  ColumnOrderings<String> get syncedAt => $composableBuilder(
+      column: $table.syncedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get cle => $composableBuilder(
+      column: $table.cle, builder: (column) => ColumnOrderings(column));
 }
 
-class $$SyncMetaTableTableAnnotationComposer
-    extends Composer<_$AppDatabaseDrift, $SyncMetaTableTable> {
-  $$SyncMetaTableTableAnnotationComposer({
+class $$SyncCursorsTableAnnotationComposer
+    extends Composer<_$AppDatabaseDrift, $SyncCursorsTable> {
+  $$SyncCursorsTableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<int> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
+  GeneratedColumn<String> get entityType => $composableBuilder(
+      column: $table.entityType, builder: (column) => column);
 
-  GeneratedColumn<DateTime> get lastPulledAt => $composableBuilder(
-      column: $table.lastPulledAt, builder: (column) => column);
+  GeneratedColumn<String> get syncedAt =>
+      $composableBuilder(column: $table.syncedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get cle =>
+      $composableBuilder(column: $table.cle, builder: (column) => column);
 }
 
-class $$SyncMetaTableTableTableManager extends RootTableManager<
+class $$SyncCursorsTableTableManager extends RootTableManager<
     _$AppDatabaseDrift,
-    $SyncMetaTableTable,
-    SyncMetaRow,
-    $$SyncMetaTableTableFilterComposer,
-    $$SyncMetaTableTableOrderingComposer,
-    $$SyncMetaTableTableAnnotationComposer,
-    $$SyncMetaTableTableCreateCompanionBuilder,
-    $$SyncMetaTableTableUpdateCompanionBuilder,
+    $SyncCursorsTable,
+    SyncCursorRow,
+    $$SyncCursorsTableFilterComposer,
+    $$SyncCursorsTableOrderingComposer,
+    $$SyncCursorsTableAnnotationComposer,
+    $$SyncCursorsTableCreateCompanionBuilder,
+    $$SyncCursorsTableUpdateCompanionBuilder,
     (
-      SyncMetaRow,
-      BaseReferences<_$AppDatabaseDrift, $SyncMetaTableTable, SyncMetaRow>
+      SyncCursorRow,
+      BaseReferences<_$AppDatabaseDrift, $SyncCursorsTable, SyncCursorRow>
     ),
-    SyncMetaRow,
+    SyncCursorRow,
     PrefetchHooks Function()> {
-  $$SyncMetaTableTableTableManager(
-      _$AppDatabaseDrift db, $SyncMetaTableTable table)
+  $$SyncCursorsTableTableManager(_$AppDatabaseDrift db, $SyncCursorsTable table)
       : super(TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$SyncMetaTableTableFilterComposer($db: db, $table: table),
+              $$SyncCursorsTableFilterComposer($db: db, $table: table),
           createOrderingComposer: () =>
-              $$SyncMetaTableTableOrderingComposer($db: db, $table: table),
+              $$SyncCursorsTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
-              $$SyncMetaTableTableAnnotationComposer($db: db, $table: table),
+              $$SyncCursorsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            Value<DateTime?> lastPulledAt = const Value.absent(),
+            Value<String> entityType = const Value.absent(),
+            Value<String> syncedAt = const Value.absent(),
+            Value<String> cle = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
           }) =>
-              SyncMetaTableCompanion(
-            id: id,
-            lastPulledAt: lastPulledAt,
+              SyncCursorsCompanion(
+            entityType: entityType,
+            syncedAt: syncedAt,
+            cle: cle,
+            rowid: rowid,
           ),
           createCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            Value<DateTime?> lastPulledAt = const Value.absent(),
+            required String entityType,
+            required String syncedAt,
+            required String cle,
+            Value<int> rowid = const Value.absent(),
           }) =>
-              SyncMetaTableCompanion.insert(
-            id: id,
-            lastPulledAt: lastPulledAt,
+              SyncCursorsCompanion.insert(
+            entityType: entityType,
+            syncedAt: syncedAt,
+            cle: cle,
+            rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (
-                    e.readTable<$SyncMetaTableTable, SyncMetaRow>(table),
-                    BaseReferences<_$AppDatabaseDrift, $SyncMetaTableTable,
-                        SyncMetaRow>(db, table, e)
+                    e.readTable<$SyncCursorsTable, SyncCursorRow>(table),
+                    BaseReferences<_$AppDatabaseDrift, $SyncCursorsTable,
+                        SyncCursorRow>(db, table, e)
                   ))
               .toList(),
           prefetchHooksCallback: null,
         ));
 }
 
-typedef $$SyncMetaTableTableProcessedTableManager = ProcessedTableManager<
+typedef $$SyncCursorsTableProcessedTableManager = ProcessedTableManager<
     _$AppDatabaseDrift,
-    $SyncMetaTableTable,
-    SyncMetaRow,
-    $$SyncMetaTableTableFilterComposer,
-    $$SyncMetaTableTableOrderingComposer,
-    $$SyncMetaTableTableAnnotationComposer,
-    $$SyncMetaTableTableCreateCompanionBuilder,
-    $$SyncMetaTableTableUpdateCompanionBuilder,
+    $SyncCursorsTable,
+    SyncCursorRow,
+    $$SyncCursorsTableFilterComposer,
+    $$SyncCursorsTableOrderingComposer,
+    $$SyncCursorsTableAnnotationComposer,
+    $$SyncCursorsTableCreateCompanionBuilder,
+    $$SyncCursorsTableUpdateCompanionBuilder,
     (
-      SyncMetaRow,
-      BaseReferences<_$AppDatabaseDrift, $SyncMetaTableTable, SyncMetaRow>
+      SyncCursorRow,
+      BaseReferences<_$AppDatabaseDrift, $SyncCursorsTable, SyncCursorRow>
     ),
-    SyncMetaRow,
+    SyncCursorRow,
     PrefetchHooks Function()>;
 
 class $AppDatabaseDriftManager {
@@ -3480,6 +3732,6 @@ class $AppDatabaseDriftManager {
   $$ConflictHistoryEntriesTableTableManager get conflictHistoryEntries =>
       $$ConflictHistoryEntriesTableTableManager(
           _db, _db.conflictHistoryEntries);
-  $$SyncMetaTableTableTableManager get syncMetaTable =>
-      $$SyncMetaTableTableTableManager(_db, _db.syncMetaTable);
+  $$SyncCursorsTableTableManager get syncCursors =>
+      $$SyncCursorsTableTableManager(_db, _db.syncCursors);
 }

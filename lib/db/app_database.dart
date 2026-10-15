@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../models/category_rule.dart';
 import '../models/transaction.dart';
+import '../services/sync_transport.dart' show SyncCursor, SyncEntity;
 import 'drift_database.dart';
 
 /// Accès unique à la base locale. La base locale reste la source de
@@ -273,22 +274,53 @@ class AppDatabase {
     return row.read(countExp) ?? 0;
   }
 
+  /// Supprime une transaction et met en file sa pierre tombale, pour que
+  /// la suppression atteigne Supabase puis les autres appareils.
+  Future<void> deleteTransaction(String id) async {
+    if (kIsWeb) {
+      _memTransactions.removeWhere((row) => row['id'] == id);
+      return;
+    }
+    await _db.transaction(() async {
+      final row = await (_db.select(_db.transactions)..where((t) => t.id.equals(id)))
+          .getSingleOrNull();
+      if (row == null) return;
+      await _supprimerAvecPierreTombale(row);
+    });
+  }
+
   Future<void> deleteAllTransactions() async {
     if (kIsWeb) {
       _memTransactions.clear();
       return;
     }
-    await _db.delete(_db.transactions).go();
+    await _db.transaction(() async {
+      for (final row in await _db.select(_db.transactions).get()) {
+        await _supprimerAvecPierreTombale(row);
+      }
+    });
+  }
+
+  Future<void> _supprimerAvecPierreTombale(TransactionRow row) async {
+    final tombe = _modelFromRow(row)..derniereModification = DateTime.now();
+    await (_db.delete(_db.transactions)..where((t) => t.id.equals(row.id))).go();
+    await _enqueue(
+      SyncEntity.transaction,
+      row.id,
+      {...tombe.toMap(), 'supprime': true},
+      operation: 'delete',
+    );
   }
 
   // ---------------------------------------------------------------------
   // Règles de catégorisation
   //
-  // Volontairement jamais synchronisées vers Supabase (Phase 2) : leur id
-  // est un entier auto-incrémenté local sans identité stable entre
-  // appareils (contrairement à l'id uuid des transactions), donc un
-  // upsert-par-id y corromprait les données en cas d'usage multi-appareil.
+  // Synchronisées sous l'identité (matchType, matchValue), voir [ruleKey] :
+  // l'id auto-incrémenté local n'a aucune identité stable entre appareils.
   // ---------------------------------------------------------------------
+
+  /// Clé de synchronisation d'une règle (colonne `cle` côté Supabase).
+  static String ruleKey(String matchType, String matchValue) => '$matchType:$matchValue';
 
   Future<void> upsertCategoryRule(CategoryRule rule) async {
     if (kIsWeb) {
@@ -308,22 +340,35 @@ class AppDatabase {
       return;
     }
 
-    final existing = await (_db.select(_db.categoryRules)
-          ..where((r) =>
-              r.matchType.equals(rule.matchType) & r.matchValue.equals(rule.matchValue)))
-        .getSingleOrNull();
-    if (existing != null) {
-      await (_db.update(_db.categoryRules)..where((r) => r.id.equals(existing.id)))
-          .write(CategoryRulesCompanion(categorie: Value(rule.categorie)));
-    } else {
-      await _db.into(_db.categoryRules).insert(
-            CategoryRulesCompanion.insert(
-              matchType: rule.matchType,
-              matchValue: rule.matchValue,
-              categorie: rule.categorie,
-            ),
-          );
-    }
+    await _db.transaction(() async {
+      final existing = await (_db.select(_db.categoryRules)
+            ..where((r) =>
+                r.matchType.equals(rule.matchType) & r.matchValue.equals(rule.matchValue)))
+          .getSingleOrNull();
+      if (existing != null && existing.categorie == rule.categorie) return;
+      final now = DateTime.now();
+      if (existing != null) {
+        await (_db.update(_db.categoryRules)..where((r) => r.id.equals(existing.id))).write(
+            CategoryRulesCompanion(
+                categorie: Value(rule.categorie), derniereModification: Value(now)));
+      } else {
+        await _db.into(_db.categoryRules).insert(
+              CategoryRulesCompanion.insert(
+                matchType: rule.matchType,
+                matchValue: rule.matchValue,
+                categorie: rule.categorie,
+                derniereModification: Value(now),
+              ),
+            );
+      }
+      await _enqueue(SyncEntity.categoryRule, ruleKey(rule.matchType, rule.matchValue), {
+        'match_type': rule.matchType,
+        'match_value': rule.matchValue,
+        'categorie': rule.categorie,
+        'supprime': false,
+        'derniere_modification': now.toIso8601String(),
+      });
+    });
   }
 
   Future<List<CategoryRule>> getCategoryRules() async {
@@ -382,9 +427,22 @@ class AppDatabase {
   }
 
   // ---------------------------------------------------------------------
-  // Catégories (écran Réglages) — jamais synchronisées vers Supabase, même
-  // raisonnement que les règles de catégorisation ci-dessus.
+  // Catégories (écran Réglages) — synchronisées sous l'identité
+  // `lower(nom)`, voir [categoryKey]. Les catégories par défaut, seedées
+  // sur chaque appareil, ne sont poussées que si on les supprime.
   // ---------------------------------------------------------------------
+
+  /// Clé de synchronisation d'une catégorie (colonne `cle` côté Supabase).
+  static String categoryKey(String nom) => nom.toLowerCase();
+
+  /// Catégorie locale de même clé que [nom]. Comparée en Dart : LOWER() de
+  /// SQLite ne met en minuscule que l'ASCII, "Électricité" n'y égalerait
+  /// donc jamais "électricité".
+  Future<CategoryRow?> _categorieParCle(String nom) async {
+    final cle = categoryKey(nom);
+    final toutes = await _db.select(_db.categories).get();
+    return toutes.where((c) => categoryKey(c.nom) == cle).firstOrNull;
+  }
 
   Stream<List<String>> watchCategories() {
     if (kIsWeb) {
@@ -412,11 +470,17 @@ class AppDatabase {
       return;
     }
 
-    final existe = await (_db.select(_db.categories)
-          ..where((c) => c.nom.lower().equals(valeur.toLowerCase())))
-        .getSingleOrNull();
-    if (existe != null) return;
-    await _db.into(_db.categories).insert(CategoriesCompanion.insert(nom: valeur));
+    await _db.transaction(() async {
+      if (await _categorieParCle(valeur) != null) return;
+      final now = DateTime.now();
+      await _db.into(_db.categories).insert(
+          CategoriesCompanion.insert(nom: valeur, derniereModification: Value(now)));
+      await _enqueue(SyncEntity.category, categoryKey(valeur), {
+        'nom': valeur,
+        'supprime': false,
+        'derniere_modification': now.toIso8601String(),
+      });
+    });
   }
 
   Future<void> removeCategory(String nom) async {
@@ -424,7 +488,21 @@ class AppDatabase {
       _memCategories.removeWhere((c) => c == nom);
       return;
     }
-    await (_db.delete(_db.categories)..where((c) => c.nom.equals(nom))).go();
+    await _db.transaction(() async {
+      final supprimees =
+          await (_db.delete(_db.categories)..where((c) => c.nom.equals(nom))).go();
+      if (supprimees == 0) return;
+      await _enqueue(
+        SyncEntity.category,
+        categoryKey(nom),
+        {
+          'nom': nom,
+          'supprime': true,
+          'derniere_modification': DateTime.now().toIso8601String(),
+        },
+        operation: 'delete',
+      );
+    });
   }
 
   // ---------------------------------------------------------------------
@@ -432,16 +510,41 @@ class AppDatabase {
   // directement.
   // ---------------------------------------------------------------------
 
-  Future<void> _enqueueSync(MoneyTransaction tx) async {
+  Future<void> _enqueueSync(MoneyTransaction tx) =>
+      _enqueue(SyncEntity.transaction, tx.id, tx.toMap());
+
+  Future<void> _enqueue(
+    SyncEntity entity,
+    String entityId,
+    Map<String, Object?> payload, {
+    String operation = 'upsert',
+  }) async {
     final now = DateTime.now();
     await _db.into(_db.syncQueueEntries).insert(
           SyncQueueEntriesCompanion.insert(
-            entityId: tx.id,
-            payload: jsonEncode(tx.toMap()),
+            entityType: Value(entity.key),
+            entityId: entityId,
+            operation: Value(operation),
+            payload: jsonEncode(payload),
             createdAt: now,
             updatedAt: now,
           ),
         );
+  }
+
+  /// Vrai si une suppression locale de cette entité attend encore d'être
+  /// poussée : un pull ne doit alors pas la ressusciter avant que le
+  /// serveur ait tranché (last-write-wins) sur la pierre tombale.
+  Future<bool> _suppressionEnAttente(SyncEntity entity, String entityId) async {
+    final row = await (_db.select(_db.syncQueueEntries)
+          ..where((e) =>
+              e.entityType.equals(entity.key) &
+              e.entityId.equals(entityId) &
+              e.operation.equals('delete') &
+              e.status.isIn(const ['en_attente', 'echec']))
+          ..limit(1))
+        .getSingleOrNull();
+    return row != null;
   }
 
   /// Entrées prêtes pour un essai de synchronisation : `en_attente`, sans
@@ -544,11 +647,18 @@ class AppDatabase {
   /// le conflit last-write-wins). N'écrase jamais un enregistrement local
   /// strictement plus récent (une pull tardive ne doit jamais effacer une
   /// édition locale pas encore poussée).
-  Future<void> applyRemoteTransaction(MoneyTransaction remote) async {
+  ///
+  /// [supprime] : la ligne serveur est une pierre tombale — la transaction
+  /// locale correspondante est alors supprimée (si elle n'est pas plus
+  /// récente).
+  Future<void> applyRemoteTransaction(MoneyTransaction remote, {bool supprime = false}) async {
     if (kIsWeb) return;
     await _db.transaction(() async {
       var local = await (_db.select(_db.transactions)..where((t) => t.id.equals(remote.id)))
           .getSingleOrNull();
+      if (local == null && await _suppressionEnAttente(SyncEntity.transaction, remote.id)) {
+        return;
+      }
       // Même transaction opérateur déjà présente localement sous un autre
       // uuid (ex. rescan SMS après réinstallation) : on adopte l'id serveur
       // plutôt que de violer l'index unique local sur
@@ -562,7 +672,71 @@ class AppDatabase {
       if (local != null && !remote.derniereModification.isAfter(local.derniereModification)) {
         return;
       }
+      if (supprime) {
+        await (_db.delete(_db.transactions)..where((t) => t.id.equals(remote.id))).go();
+        return;
+      }
       await _db.into(_db.transactions).insertOnConflictUpdate(_companionFromModel(remote));
+    });
+  }
+
+  /// Applique une ligne serveur de la table `categories` (même règles que
+  /// [applyRemoteTransaction] : jamais d'écrasement d'une version locale
+  /// plus récente, jamais de résurrection d'une suppression en attente).
+  Future<void> applyRemoteCategory(Map<String, Object?> row) async {
+    if (kIsWeb) return;
+    final nom = row['nom'] as String;
+    final cle = categoryKey(nom);
+    final ts = DateTime.parse(row['derniere_modification'] as String);
+    await _db.transaction(() async {
+      final local = await _categorieParCle(nom);
+      if (local == null && await _suppressionEnAttente(SyncEntity.category, cle)) return;
+      if (local != null && !ts.isAfter(local.derniereModification)) return;
+      if (row['supprime'] == true) {
+        if (local != null) {
+          await (_db.delete(_db.categories)..where((c) => c.id.equals(local.id))).go();
+        }
+      } else if (local != null) {
+        await (_db.update(_db.categories)..where((c) => c.id.equals(local.id))).write(
+            CategoriesCompanion(nom: Value(nom), derniereModification: Value(ts)));
+      } else {
+        await _db.into(_db.categories).insert(
+            CategoriesCompanion.insert(nom: nom, derniereModification: Value(ts)));
+      }
+    });
+  }
+
+  /// Applique une ligne serveur de la table `category_rules`.
+  Future<void> applyRemoteCategoryRule(Map<String, Object?> row) async {
+    if (kIsWeb) return;
+    final matchType = row['match_type'] as String;
+    final matchValue = row['match_value'] as String;
+    final ts = DateTime.parse(row['derniere_modification'] as String);
+    await _db.transaction(() async {
+      final local = await (_db.select(_db.categoryRules)
+            ..where((r) => r.matchType.equals(matchType) & r.matchValue.equals(matchValue)))
+          .getSingleOrNull();
+      if (local == null &&
+          await _suppressionEnAttente(SyncEntity.categoryRule, ruleKey(matchType, matchValue))) {
+        return;
+      }
+      if (local != null && !ts.isAfter(local.derniereModification)) return;
+      if (row['supprime'] == true) {
+        if (local != null) {
+          await (_db.delete(_db.categoryRules)..where((r) => r.id.equals(local.id))).go();
+        }
+      } else if (local != null) {
+        await (_db.update(_db.categoryRules)..where((r) => r.id.equals(local.id))).write(
+            CategoryRulesCompanion(
+                categorie: Value(row['categorie'] as String), derniereModification: Value(ts)));
+      } else {
+        await _db.into(_db.categoryRules).insert(CategoryRulesCompanion.insert(
+              matchType: matchType,
+              matchValue: matchValue,
+              categorie: row['categorie'] as String,
+              derniereModification: Value(ts),
+            ));
+      }
     });
   }
 
@@ -576,7 +750,8 @@ class AppDatabase {
       await (_db.update(_db.transactions)..where((t) => t.id.equals(oldId)))
           .write(TransactionsCompanion(id: Value(newId)));
       final entries = await (_db.select(_db.syncQueueEntries)
-            ..where((e) => e.entityId.equals(oldId)))
+            ..where((e) =>
+                e.entityType.equals(SyncEntity.transaction.key) & e.entityId.equals(oldId)))
           .get();
       for (final entry in entries) {
         final payload = jsonDecode(entry.payload) as Map<String, Object?>;
@@ -606,15 +781,20 @@ class AppDatabase {
         );
   }
 
-  Future<DateTime> getLastPulledAt() async {
-    final row =
-        await (_db.select(_db.syncMetaTable)..where((m) => m.id.equals(0))).getSingle();
-    return row.lastPulledAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+  /// Curseur de pull de [entity], null tant que rien n'a été tiré.
+  Future<SyncCursor?> getSyncCursor(SyncEntity entity) async {
+    final row = await (_db.select(_db.syncCursors)
+          ..where((c) => c.entityType.equals(entity.key)))
+        .getSingleOrNull();
+    return row == null ? null : SyncCursor(row.syncedAt, row.cle);
   }
 
-  Future<void> setLastPulledAt(DateTime value) {
-    return (_db.update(_db.syncMetaTable)..where((m) => m.id.equals(0)))
-        .write(SyncMetaTableCompanion(lastPulledAt: Value(value)));
+  Future<void> setSyncCursor(SyncEntity entity, SyncCursor cursor) {
+    return _db.into(_db.syncCursors).insertOnConflictUpdate(SyncCursorsCompanion.insert(
+          entityType: entity.key,
+          syncedAt: cursor.syncedAt,
+          cle: cursor.cle,
+        ));
   }
 
   // ---------------------------------------------------------------------

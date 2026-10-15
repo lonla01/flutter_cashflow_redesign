@@ -103,12 +103,12 @@ class FakeConnectivityChecker implements ConnectivityChecker {
 /// interceptée.
 class AlwaysFailingSyncTransport implements SyncTransport {
   @override
-  Future<Map<String, Object?>> pushTransaction(Map<String, Object?> payload) {
+  Future<Map<String, Object?>> push(SyncEntity entity, Map<String, Object?> payload) {
     throw Exception('réseau injoignable (faux transport de test)');
   }
 
   @override
-  Future<List<Map<String, Object?>>> pullChangedSince(DateTime since) {
+  Future<List<Map<String, Object?>>> pullPage(SyncEntity entity, SyncCursor? after) {
     throw Exception('réseau injoignable (faux transport de test)');
   }
 }
@@ -117,11 +117,11 @@ class AlwaysFailingSyncTransport implements SyncTransport {
 /// le conflit last-write-wins (dates identiques).
 class EchoingSyncTransport implements SyncTransport {
   @override
-  Future<Map<String, Object?>> pushTransaction(Map<String, Object?> payload) async =>
+  Future<Map<String, Object?>> push(SyncEntity entity, Map<String, Object?> payload) async =>
       Map<String, Object?>.from(payload);
 
   @override
-  Future<List<Map<String, Object?>>> pullChangedSince(DateTime since) async => [];
+  Future<List<Map<String, Object?>>> pullPage(SyncEntity entity, SyncCursor? after) async => [];
 }
 
 /// Simule un conflit : renvoie toujours une ligne serveur dont
@@ -133,20 +133,20 @@ class ConflictingSyncTransport implements SyncTransport {
   final Map<String, Object?> Function(Map<String, Object?> localPayload) serverRowBuilder;
 
   @override
-  Future<Map<String, Object?>> pushTransaction(Map<String, Object?> payload) async =>
+  Future<Map<String, Object?>> push(SyncEntity entity, Map<String, Object?> payload) async =>
       serverRowBuilder(payload);
 
   @override
-  Future<List<Map<String, Object?>>> pullChangedSince(DateTime since) async => [];
+  Future<List<Map<String, Object?>>> pullPage(SyncEntity entity, SyncCursor? after) async => [];
 }
 
 /// Simule une erreur non réessayable (payload invalide, accès refusé).
 class NonRetryableThrowingTransport implements SyncTransport {
   @override
-  Future<Map<String, Object?>> pushTransaction(Map<String, Object?> payload) {
+  Future<Map<String, Object?>> push(SyncEntity entity, Map<String, Object?> payload) {
     throw NonRetryableSyncException('payload invalide (faux transport de test)');
   }
 
   @override
-  Future<List<Map<String, Object?>>> pullChangedSince(DateTime since) async => [];
+  Future<List<Map<String, Object?>>> pullPage(SyncEntity entity, SyncCursor? after) async => [];
 }

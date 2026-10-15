@@ -141,21 +141,29 @@ class SyncService {
 
   Future<void> _syncOne(SyncQueueEntryRow entry) async {
     try {
+      final entity = SyncEntity.fromKey(entry.entityType);
       final localPayload = jsonDecode(entry.payload) as Map<String, Object?>;
-      final serverRow = await transport.pushTransaction(localPayload).timeout(networkTimeout);
-      // Le serveur connaissait déjà cette transaction opérateur sous un
-      // autre uuid (voir sync_upsert_transaction) : on s'aligne sur son id.
-      final serverId = serverRow['id'] as String? ?? entry.entityId;
-      if (serverId != entry.entityId) {
-        await db.reassignTransactionId(entry.entityId, serverId);
+      final serverRow = await transport.push(entity, localPayload).timeout(networkTimeout);
+      if (entity == SyncEntity.transaction) {
+        // Le serveur connaissait déjà cette transaction opérateur sous un
+        // autre uuid (voir sync_upsert_transaction) : on s'aligne sur son id.
+        final serverId = serverRow['id'] as String? ?? entry.entityId;
+        if (serverId != entry.entityId) {
+          await db.reassignTransactionId(entry.entityId, serverId);
+        }
       }
+      // Marquée avant d'appliquer la ligne serveur : une pierre tombale
+      // encore "en attente" empêcherait applyRemote* de restaurer une
+      // version serveur plus récente qui a gagné le conflit.
+      await db.markSyncEntry(entry.id, status: 'synchronise');
       final localTs = DateTime.parse(localPayload['derniere_modification'] as String);
       final serverTsRaw = serverRow['derniere_modification'];
       if (serverTsRaw != null && DateTime.parse(serverTsRaw as String).isAfter(localTs)) {
-        await db.recordConflict(serverId, localPayload, serverRow);
-        await db.applyRemoteTransaction(MoneyTransaction.fromMap(serverRow));
+        if (entity == SyncEntity.transaction) {
+          await db.recordConflict(serverRow['id'] as String, localPayload, serverRow);
+        }
+        await _appliquer(entity, serverRow);
       }
-      await db.markSyncEntry(entry.id, status: 'synchronise');
     } on NonRetryableSyncException catch (e) {
       await db.markSyncEntry(entry.id, status: 'echec', lastError: e.toString());
     } catch (e) {
@@ -170,13 +178,42 @@ class SyncService {
     }
   }
 
-  Future<void> _pull() async {
-    final since = await db.getLastPulledAt();
-    final rows = await transport.pullChangedSince(since).timeout(networkTimeout);
-    for (final row in rows) {
-      await db.applyRemoteTransaction(MoneyTransaction.fromMap(row));
+  Future<void> _appliquer(SyncEntity entity, Map<String, Object?> row) {
+    switch (entity) {
+      case SyncEntity.transaction:
+        return db.applyRemoteTransaction(
+          MoneyTransaction.fromMap(row),
+          supprime: row['supprime'] == true,
+        );
+      case SyncEntity.category:
+        return db.applyRemoteCategory(row);
+      case SyncEntity.categoryRule:
+        return db.applyRemoteCategoryRule(row);
     }
-    await db.setLastPulledAt(DateTime.now());
+  }
+
+  /// Tire, page par page, toutes les lignes écrites côté serveur depuis le
+  /// curseur de chaque entité. Le curseur est sauvegardé après chaque page
+  /// appliquée : une coupure en cours de route reprend où elle s'est
+  /// arrêtée.
+  Future<void> _pull() async {
+    for (final entity in SyncEntity.values) {
+      var cursor = await db.getSyncCursor(entity);
+      while (true) {
+        final rows = await transport.pullPage(entity, cursor).timeout(networkTimeout);
+        for (final row in rows) {
+          await _appliquer(entity, row);
+        }
+        if (rows.isEmpty) break;
+        final last = rows.last;
+        cursor = SyncCursor(
+          DateTime.parse(last['synced_at'] as String).toUtc().toIso8601String(),
+          '${last[entity.keyColumn]}',
+        );
+        await db.setSyncCursor(entity, cursor);
+        if (rows.length < SyncTransport.pageSize) break;
+      }
+    }
   }
 
   Future<void> _refreshStatus({bool forcedOffline = false}) async {
