@@ -48,10 +48,10 @@ void main() {
     await tester.pump();
 
     final fmt = NumberFormat('#,##0', 'fr_FR');
-    expect(find.text('Alimentation · 3 transactions'), findsOneWidget);
+    expect(find.text('Total Alimentation · 3 transactions'), findsOneWidget);
     expect(find.text('Dépensé ${fmt.format(7000)} · Reçu ${fmt.format(1500)} FCFA'), findsOneWidget);
     final net = tester.widget<Text>(find.text('-${fmt.format(5500)} FCFA'));
-    expect(net.style!.color, Colors.red.shade700);
+    expect(net.style!.color, Colors.redAccent.shade100);
 
     await tester.tap(find.widgetWithText(ChoiceChip, 'Toutes'));
     await tester.pump();

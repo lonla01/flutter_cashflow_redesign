@@ -269,32 +269,59 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     final net = recu - depense;
     final nb = _filtrees.length;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      child: Card(
-        margin: EdgeInsets.zero,
-        child: ListTile(
-          dense: true,
-          title: Text(
-            '$_categorieFiltre · $nb transaction${nb > 1 ? 's' : ''}',
-            style: const TextStyle(fontWeight: FontWeight.w600),
+    // Volontairement très différent d'une ligne de transaction (fond
+    // blanc) : même dégradé que les totaux du tableau de bord.
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: AppGradients.primary,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.navy700.withValues(alpha: 0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-          subtitle: depense > 0 && recu > 0
-              ? Text('Dépensé ${fmt.format(depense)} · Reçu ${fmt.format(recu)} FCFA')
-              : null,
-          trailing: Text(
-            '${net > 0 ? '+' : net < 0 ? '-' : ''}${fmt.format(net.abs())} FCFA',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 15,
-              color: net > 0
-                  ? Colors.green.shade700
-                  : net < 0
-                      ? Colors.red.shade700
-                      : null,
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.functions, color: Colors.white70),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Total $_categorieFiltre · $nb transaction${nb > 1 ? 's' : ''}',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                ),
+                if (depense > 0 && recu > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      'Dépensé ${fmt.format(depense)} · Reçu ${fmt.format(recu)} FCFA',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+                    ),
+                  ),
+              ],
             ),
           ),
-        ),
+          const SizedBox(width: 8),
+          Text(
+            '${net > 0 ? '+' : net < 0 ? '-' : ''}${fmt.format(net.abs())} FCFA',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              color: net > 0
+                  ? Colors.greenAccent.shade100
+                  : net < 0
+                      ? Colors.redAccent.shade100
+                      : Colors.white,
+            ),
+          ),
+        ],
       ),
     );
   }
